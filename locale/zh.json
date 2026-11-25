@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "maw 看板",
+    "description": "在会话里直接看本机 maw 多 Agent 看板：进度、任务泳道、依赖拓扑与 Agent 状态。只读，不会领取、提交或合入任何任务。",
+    "detail": "docs/DETAIL.md"
+  }
+}

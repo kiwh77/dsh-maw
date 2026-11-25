@@ -1,0 +1,57 @@
+{
+  "name": "@local/dsh-maw",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "maw 看板、依赖拓扑与 MAW 模式；自带 maw 运行时安装。",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiwh77/dsh-maw.git"
+  },
+  "homepage": "https://github.com/kiwh77/dsh-maw#readme",
+  "bugs": {
+    "url": "https://github.com/kiwh77/dsh-maw/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "maw",
+    "multi-agent",
+    "kanban",
+    "dependency-graph"
+  ]
+}

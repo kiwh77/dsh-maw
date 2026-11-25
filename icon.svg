@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="maw board">
+  <defs>
+    <linearGradient id="maw-board-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f6fed"/>
+      <stop offset="1" stop-color="#1b3f9e"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="6" width="56" height="52" rx="12" fill="url(#maw-board-bg)"/>
+  <!-- 三列泳道：象征看板的列 -->
+  <rect x="11" y="14" width="13" height="36" rx="3" fill="#ffffff" fill-opacity="0.22"/>
+  <rect x="26" y="14" width="13" height="24" rx="3" fill="#ffffff" fill-opacity="0.34"/>
+  <rect x="41" y="14" width="13" height="31" rx="3" fill="#ffffff" fill-opacity="0.46"/>
+  <!-- 依赖连线：左侧节点指向右侧节点 -->
+  <path d="M17.5 21 L33 21" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M33 21 L48 21" stroke="#ffffff" stroke-opacity="0.75" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M17.5 30 L33 30 L48 30" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3" fill="none"/>
+  <!-- 节点圆点 -->
+  <circle cx="17.5" cy="21" r="2.6" fill="#ffffff"/>
+  <circle cx="33" cy="21" r="2.6" fill="#ffffff"/>
+  <circle cx="48" cy="21" r="2.6" fill="#ffffff"/>
+  <circle cx="17.5" cy="30" r="2.2" fill="#ffffff" fill-opacity="0.8"/>
+  <circle cx="48" cy="30" r="2.2" fill="#7ef0a8"/>
+</svg>

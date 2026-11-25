@@ -1,0 +1,163 @@
+# dsh-maw bundle patch
+#
+# 只读看板 + MAW 模式：
+#   · Host 侧跑 maw 只读命令，Client 侧渲染看板与依赖拓扑。
+#   · MAW 模式是一个 agent preset：在这个模式下把用户交待的任务拆成 maw
+#     任务清单压入队列，并自动打开智能体团队协作。
+#   · 写操作只有 `maw plan check` 与增量 `maw plan apply`；领取、提交、合入、
+#     阻塞、清理这些会动 worktree 与分支的命令不在此列。
+- insert:
+    - id: dsh-maw
+      name: '@local/dsh-maw'
+      config:
+        projects: []
+        pollMs: 5000
+        cacheMs: 5000
+        timeoutMs: 8000
+        showDone: false
+        maxGraphNodes: 300
+        # maw 作为背景依赖：缺失时按官方 release 自动装到 ~/.local/bin
+        autoInstall: true
+        mawVersion: latest
+        installDir: ''
+        allowGoFallback: false
+
+    # ── MAW 模式 ───────────────────────────────────────────────────────────
+    # 与 standard preset 同构：agent 平面的插件清单照抄，persona 换成 MAW 的
+    # 工作方式。maw_* 工具由上面的 dsh-maw 行在 host 平面全局注册，所以这里
+    # 不需要再列一遍；压入工具只在 preset=maw 时可见。
+    - id: preset-maw
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: maw
+        name: MAW 模式
+        description: 把用户交待的任务拆成 maw 任务清单压入队列并执行；进入即开启智能体团队协作。
+        order: 7
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                你是 MAW 模式的执行指挥。用户交待的任何任务，都按「拆题 → 压入队列 → 团队执行 → 汇报」四步走，不要自己闷头做完再回头补记录。
+
+                ## 一、拆题
+                把任务拆成可独立交付、可独立验收的题卡。每题必须给全：
+                - `id`：稳定编号，形如 `MAW-1001`（本模式统一 MAW 前缀，序号自增）。
+                - `title`：一句话说清交付物。
+                - `goal`：这题为什么存在、要定死什么。
+                - `writeScope`：这题允许写的文件或目录。**两题的写范围不要重叠**，重叠就说明该合并成一题，或者该拆出契约题。
+                - `deps`：必须先完成的题号。真实依赖才写，别为了排序硬连。
+                - `acceptance`：可复核的验收条目，不要写「功能正常」这种话。
+                - `verify`：能跑出结果的验证命令。
+                粒度以「一个 agent 能独立做完并自证」为准：太大拆开，太小合并。
+
+                ## 二、压入队列
+                用 `maw_plan_push` 压入。**先不带 `apply`**，看它返回的校验结果与理论并行度；确认无误后再带 `apply: true` 压入。压入是增量合入，不会清空既有任务，所以可以分批追加。
+                压入前先想清楚迭代归属：这些题属于哪个迭代、落在哪条目标分支。
+
+                ## 三、团队执行
+                本模式已自动开启智能体团队协作。压入后按依赖层次派活：
+                - 没有依赖的题先并行开；有 `deps` 的题等前置完成再开。
+                - 每个 teammate 只做自己那题的 `writeScope`，越界就停下来报告，不要顺手改别人的文件。
+                - 派活时说清：题号、目标、写范围、验收标准、验证命令。
+                - 收到的结果要自己复核一遍（至少跑一次 `verify`），别把「子 agent 说完成了」当成完成。
+
+                ## 四、汇报
+                收尾时给用户一张表：题号 / 结果 / 验证证据 / 遗留问题。遗留问题要具体到「谁、缺什么、下一步做什么」，不要写「待后续跟进」。
+
+                ## 边界
+                - 你只做拆题、压入、派活、复核、汇报。maw 侧的领取、提交、合入、阻塞仍由 maw worker 负责，本模式不碰。
+                - 队列里已有同号任务时不要重复压入；先查 `maw_task` 确认现状。
+                - 任何会删除或重置 maw 任务的操作都不要做。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              applyPatch: false
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              customSkillDirs:
+                - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@deepseek-ai/dsh-agent-preset/package.json')), 'skills')
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+                config:
+                  interrupt: false
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelection: true
+                  modelDiscovery: true
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
+                config:
+                  provider: spawn
+              - id: tool-workflow
+                name: '@deepseek-ai/dsh-tool-workflow'
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: !!js "!ctx.get('profileContext')"
