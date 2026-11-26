@@ -67,6 +67,7 @@
 
                 ## 边界
                 - 你只做拆题、压入、派活、复核、汇报。maw 侧的领取、提交、合入、阻塞仍由 maw worker 负责，本模式不碰。
+                - **只看本工程的队列。** maw 里可以登记多个工程，本会话只负责当前工程。调用 `maw_board` / `maw_task` / `maw_deps` / `maw_plan_push` 时一律带 `project` 参数（工程 id 见会话开头的启动指令）；不要读别的工程的题，也不要用 `maw board` 这类跨工程视角去统计。
                 - 队列里已有同号任务时不要重复压入；先查 `maw_task` 确认现状。
                 - 任何会删除或重置 maw 任务的操作都不要做。
           - id: agent-instructions

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "maw 看板、依赖拓扑与 MAW 模式；自带 maw 运行时安装。",
+  "description": "Multi-Agent Workspace：maw 看板、依赖拓扑与 MAW 模式；自带 maw 运行时安装。",
   "license": "Apache-2.0",
   "exports": {
     ".": "./index.js",

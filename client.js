@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
       zh: {
         tab: '看板',
         switchTo: '切换到',
-        title: 'maw 看板',
+        title: 'Multi-Agent Workspace',
         progress: '进度',
         tasks: '题',
         activeAgents: '活跃 Agent',
@@ -24,7 +24,6 @@ window.__ModuleLoader__.load({
         retry: '重试',
         board: '看板',
         graph: '拓扑',
-        filterProject: '项目',
         filterLane: '泳道',
         filterStatus: '状态',
         filterAgent: 'Agent',
@@ -76,11 +75,31 @@ window.__ModuleLoader__.load({
         installDone: '已装好 maw',
         installFailed: '安装失败',
         healthReady: 'maw',
+        launch: '启动',
+        launching: '正在启动…',
+        launchHint: '以 MAW 模式发起一次会话，按依赖顺序开工',
+        launchRunningTitle: '任务执行中',
+        launchDisabledNothingReady: '当前没有可开工的任务',
+        launchDisabledNoTasks: '这个工程还没有任务',
+        launchDisabledNoProject: '没有解析到这个工程的目录',
+        launchFailed: '启动失败',
+        actionDoctor: '自检',
+        actionDoctorHint: '只读体检：检查 maw 配置与协议版本',
+        actionPrune: '清理预览',
+        actionPruneHint: '只列出残留工作树与分支，不删除任何东西',
+        actionReconcile: '一致性检查',
+        actionReconcileHint: '只报告生命周期残留，不做修复',
+        actionFailed: '执行失败',
+        actionRunning: '执行中…',
+        actionEmpty: '没有发现问题',
+        close: '关闭',
+        notMawProject: '当前工作区不是 maw 工程，没有看板可展示。',
+        notMawProjectHint: '把该目录登记进 maw（maw project add）后，这里会显示它的队列。',
       },
       en: {
         tab: 'Board',
         switchTo: 'Switch to',
-        title: 'maw board',
+        title: 'Multi-Agent Workspace',
         progress: 'progress',
         tasks: 'tasks',
         activeAgents: 'active agents',
@@ -92,7 +111,6 @@ window.__ModuleLoader__.load({
         retry: 'Retry',
         board: 'Board',
         graph: 'Topology',
-        filterProject: 'Project',
         filterLane: 'Lane',
         filterStatus: 'Status',
         filterAgent: 'Agent',
@@ -137,13 +155,33 @@ window.__ModuleLoader__.load({
         stubTitle: 'Filtered out / historical',
         stubHint: 'Not in this view',
         pNone: 'P—',
-        healthMissing: '未检测到 maw',
-        healthMissingHint: '看板与压测需要本机 maw。点安装会下载官方 release 并校验 sha256。',
-        install: '安装 maw',
-        installing: '正在安装…',
-        installDone: '已装好 maw',
-        installFailed: '安装失败',
+        healthMissing: 'maw not detected',
+        healthMissingHint: 'The board and push need a local maw. Installing downloads the official release and verifies its sha256.',
+        install: 'Install maw',
+        installing: 'Installing…',
+        installDone: 'maw installed',
+        installFailed: 'Install failed',
         healthReady: 'maw',
+        launch: 'Launch',
+        launching: 'Launching…',
+        launchHint: 'Start a MAW-mode session that works the queue in dependency order',
+        launchRunningTitle: 'Task in progress',
+        launchDisabledNothingReady: 'No task is ready to start',
+        launchDisabledNoTasks: 'This project has no tasks yet',
+        launchDisabledNoProject: 'Could not resolve this project directory',
+        launchFailed: 'Launch failed',
+        actionDoctor: 'Self-check',
+        actionDoctorHint: 'Read-only health check of maw config and protocol version',
+        actionPrune: 'Prune preview',
+        actionPruneHint: 'List leftover worktrees and branches; nothing is deleted',
+        actionReconcile: 'Reconcile check',
+        actionReconcileHint: 'Report lifecycle leftovers; nothing is repaired',
+        actionFailed: 'Action failed',
+        actionRunning: 'Running…',
+        actionEmpty: 'Nothing found',
+        close: 'Close',
+        notMawProject: 'This workspace is not a maw project, so there is no board to show.',
+        notMawProjectHint: 'Register the directory with maw (maw project add) to see its queue here.',
       },
     }
 
@@ -174,6 +212,16 @@ window.__ModuleLoader__.load({
 
     let dict = TEXT.zh
     let statusLabel = STATUS_LABEL.zh
+
+    /**
+     * 跳到某个会话。
+     *
+     * 槽位组件拿不到插件 ctx，而启动成功后要立刻把用户带到新会话，
+     * 所以在 apply 里把 uiWorkspace 的能力放进这个模块级钩子。
+     * 服务缺失时退化成「不跳转」：会话已经建好，用户能在侧栏里看到它。
+     * @param {string} _sessionId
+     */
+    let openSession = () => {}
 
     // ── 样式（对齐 maw board 的看板与拓扑视觉） ───────────
     const CSS = `
@@ -305,6 +353,43 @@ window.__ModuleLoader__.load({
   color: var(--dsw-alias-label-primary); cursor: pointer; }
 .maw-btn:hover { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
 .maw-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+/* 启动按钮：可点时是主色，禁用时退成静态灰，并且不接 hover。 */
+.maw-launch { height: 26px; padding: 0 12px; font: inherit; font-size: 12px; font-weight: 600;
+  border-radius: 6px; border: 1px solid var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-brand-primary); color: var(--dsw-alias-label-inverse, #fff);
+  cursor: pointer; white-space: nowrap; }
+.maw-launch:hover { filter: brightness(1.06); }
+.maw-launch:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+.maw-launch[disabled] { cursor: not-allowed; opacity: .45; filter: none;
+  border-color: var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary); }
+.maw-launch__wrap { display: inline-flex; }
+.maw-launch__reason { font-size: 11px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+.maw-launch__err { font-size: 11px; color: var(--dsw-alias-state-error-primary); white-space: nowrap; }
+/* 预览按钮组：次要样式，视觉上从属于启动按钮。 */
+.maw-actions { display: inline-flex; align-items: center; gap: 4px; }
+.maw-action { height: 26px; padding: 0 9px; font: inherit; font-size: 11px; border-radius: 6px;
+  border: 1px solid var(--dsw-alias-border-l1); background: transparent;
+  color: var(--dsw-alias-label-secondary); cursor: pointer; white-space: nowrap; }
+.maw-action:hover { background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
+.maw-action:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.maw-action[disabled] { cursor: progress; opacity: .55; }
+.maw-action[data-active="true"] { background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
+/* 预览结果面板：贴在看板顶部，可关掉。 */
+.maw-preview { margin: 0 16px 10px; padding: 10px 12px; border-radius: 8px; font-size: 11px;
+  border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2);
+  line-height: 1.5; }
+.maw-preview__head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.maw-preview__title { font-weight: 600; font-size: 12px; }
+.maw-preview__close { margin-left: auto; border: 0; background: transparent; cursor: pointer;
+  color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 1; padding: 2px 4px;
+  border-radius: 4px; }
+.maw-preview__close:hover { background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary); }
+.maw-preview__lines { margin: 0; padding-left: 16px; color: var(--dsw-alias-label-secondary); }
+.maw-preview__err { color: var(--dsw-alias-state-error-primary); }
 .maw-check--floating { position: absolute; right: 12px; top: 44px;
   background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 6px; padding: 3px 8px; }
@@ -332,6 +417,7 @@ window.__ModuleLoader__.load({
 .maw-item__head { font-weight: 600; }
 .maw-item__body { color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .maw-empty { padding: 32px; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.maw-empty__hint { margin-top: 6px; font-size: 11px; opacity: .8; }
 .maw-error { padding: 12px; border-radius: 8px; font-size: 12px; line-height: 1.5;
   border: 1px solid var(--dsw-alias-state-error-primary);
   background: var(--dsw-alias-bg-layer-2); }
@@ -502,6 +588,156 @@ window.__ModuleLoader__.load({
     }
 
     // ── 看板 ─────────────────────────────────────────────
+    /**
+     * 启动按钮：以 MAW 模式发起一次会话。
+     *
+     * 能不能点由 Host 算好随看板下发（`data.launch`），这里不自己推断 ——
+     * 「有没有可开工的题」与「这个工程是不是已经在跑」都要看 Host 侧的活 agent，
+     * 浏览器侧拿不到，自己猜就会亮着按钮点了没反应。
+     *
+     * @param {object} props
+     * @param {object|null} props.launch Host 下发的启动状态
+     * @param {AbortSignal} [props.signal] 组件卸载时取消请求
+     * @param {() => void} props.onDone 启动结束后请调用方刷新数据
+     * @param {(sessionId: string) => void} [props.onOpened] 跳到新会话
+     */
+    function LaunchButton({ launch, onDone, onOpened }) {
+      const [busy, setBusy] = useState(false)
+      const [error, setError] = useState('')
+
+      const canLaunch = launch?.canLaunch === true
+      const reason = String(launch?.reason ?? '')
+      const projectId = String(launch?.projectId ?? '')
+
+      // 禁用原因的分工：
+      //  - 执行中只是「暂时」，不占版面，靠 hover 的 title 说明；
+      //  - 「没题可开工 / 工程没任务」是稳定状态，留在按钮旁边讲清楚。
+      const reasonText = () => {
+        if (reason === 'nothing-ready') return dict.launchDisabledNothingReady
+        if (reason === 'no-tasks') return dict.launchDisabledNoTasks
+        if (reason === 'no-project') return dict.launchDisabledNoProject
+        return ''
+      }
+
+      const run = async () => {
+        if (busy || !canLaunch) return
+        setBusy(true)
+        setError('')
+        try {
+          const params = new URLSearchParams()
+          if (projectId !== '') params.set('project', projectId)
+          const query = params.toString()
+          const response = await fetch(`${API}/launch${query === '' ? '' : `?${query}`}`, {
+            method: 'POST',
+            headers: { accept: 'application/json' },
+          })
+          const body = await response.json().catch(() => null)
+          if (!response.ok || body?.ok !== true) {
+            // 409 是「已经有人在跑」的常见结局：把原因显示出来，不当异常。
+            setError(String(body?.error ?? '') || reasonText() || `HTTP ${response.status}`)
+            return
+          }
+          onDone?.()
+          if (typeof body.sessionId === 'string' && body.sessionId !== '') onOpened?.(body.sessionId)
+        } catch (caught) {
+          setError(String(caught?.message ?? caught))
+        } finally {
+          setBusy(false)
+        }
+      }
+
+      const disabled = busy || !canLaunch
+      // 执行中这条不占版面：只在悬停时用 title 提示一句，按钮旁边不再常驻文字。
+      const running = !busy && !canLaunch && reason === 'already-running'
+      const title = canLaunch
+        ? dict.launchHint
+        : (running ? dict.launchRunningTitle : (reasonText() || dict.launchHint))
+      // 其余禁用原因（没题可开工等）仍留在旁边说明，它们不是「暂时」状态。
+      const inlineReason = !busy && !canLaunch && !running && reasonText() !== ''
+
+      const button = h('button', {
+        type: 'button',
+        className: 'maw-launch',
+        disabled,
+        title,
+        'aria-disabled': disabled,
+        onClick: run,
+      }, busy ? dict.launching : dict.launch)
+
+      return h(React.Fragment, null,
+        // disabled 的按钮在部分浏览器里不派发悬停事件，套一层带 title 的壳
+        // 保证「任务执行中」这句提示稳定能看到。
+        disabled ? h('span', { className: 'maw-launch__wrap', title }, button) : button,
+        inlineReason && h('span', { className: 'maw-launch__reason' }, reasonText()),
+        error !== '' && h('span', { className: 'maw-launch__err' }, `${dict.launchFailed}：${error}`))
+    }
+
+    /**
+     * 预览按钮组：自检 / 清理预览 / 一致性检查。
+     *
+     * 三条命令默认都不改任何东西，所以点下去不需要二次确认；真正会删会改的
+     * 参数（`--yes`、`--apply`）由 Host 侧白名单硬拦，界面上也没有入口。
+     *
+     * 动作清单由 Host 下发（`data.actions`），这里只负责渲染与展示结果。
+     *
+     * @param {object} props
+     * @param {object[]} props.actions Host 下发的动作清单
+     * @param {string} props.projectId 当前工程 id
+     * @param {(id: string) => string} props.labelOf 取按钮文案
+     * @param {(result: object) => void} props.onResult 把结果交回看板展示
+     * @param {string} props.busyId 正在跑的动作 id
+     * @param {(id: string) => void} props.setBusyId
+     */
+    function PreviewActions({ actions, projectId, labelOf, onResult, busyId, setBusyId }) {
+      const list = Array.isArray(actions) ? actions : []
+      if (list.length === 0) return null
+
+      const run = async action => {
+        if (busyId !== '') return
+        setBusyId(action.id)
+        try {
+          const params = new URLSearchParams({ action: action.id })
+          if (projectId !== '') params.set('project', projectId)
+          const response = await fetch(`${API}/preview?${params.toString()}`, {
+            method: 'POST',
+            headers: { accept: 'application/json' },
+          })
+          const body = await response.json().catch(() => null)
+          onResult({
+            id: action.id,
+            label: labelOf(action),
+            ok: body?.ok === true,
+            summary: String(body?.summary ?? ''),
+            lines: Array.isArray(body?.lines) ? body.lines : [],
+            error: String(body?.error ?? (response.ok ? '' : `HTTP ${response.status}`)),
+          })
+        } catch (error) {
+          onResult({
+            id: action.id,
+            label: labelOf(action),
+            ok: false,
+            summary: '',
+            lines: [],
+            error: String(error?.message ?? error),
+          })
+        } finally {
+          setBusyId('')
+        }
+      }
+
+      return h('div', { className: 'maw-actions' },
+        list.map(action => h('button', {
+          key: action.id,
+          type: 'button',
+          className: 'maw-action',
+          // 一次只跑一个：这些命令都会扫盘，并发跑只会互相拖慢。
+          disabled: busyId !== '',
+          'data-active': busyId === action.id,
+          title: dict[action.hintKey] ?? '',
+          onClick: () => void run(action),
+        }, busyId === action.id ? dict.actionRunning : (dict[action.labelKey] ?? action.id))))
+    }
+
     function BoardPane({ data, filters, setFilters, selected, onSelect }) {
       const tasks = data?.filteredTasks ?? data?.tasks ?? []
 
@@ -575,8 +811,8 @@ window.__ModuleLoader__.load({
 
       return h(React.Fragment, null,
         h('div', { className: 'maw-filters' },
-          field(dict.filterProject, 'project',
-            (data?.projects ?? []).map(item => ({ value: item.id, label: item.name }))),
+          // 不再提供「切换工程」入口：看板只展示当前工作区对应的那个工程，
+          // 换工程靠切换工作区的会话，而不是在这里挑。
           field(dict.filterLane, 'lane', laneOptions),
           field(dict.filterStatus, 'status',
             ['backlog', 'ready', 'in_progress', 'merging', 'blocked', 'done', 'cancelled']),
@@ -1023,15 +1259,17 @@ window.__ModuleLoader__.load({
       useStyle()
       const sessionId = typeof props?.sessionId === 'string' ? props.sessionId : ''
       const [tab, setTab] = useState('board')
-      const [filters, setFilters] = useState({ project: '', lane: '', status: '', agent: '', includeDone: false })
+      // 不再有 project 维度：看的是哪个工程由会话自己的工作区决定，
+      // 请求里也不带 project 参数，避免界面能把工程切走。
+      const [filters, setFilters] = useState({ lane: '', status: '', agent: '', includeDone: false })
       const [selected, setSelected] = useState(null)
-      // 每个会话只自动套用一次默认工程，之后用户清空筛选也不回弹。
-      const defaultApplied = useRef('')
+      // 预览动作：正在跑的那个、以及最近一次结果。
+      const [busyAction, setBusyAction] = useState('')
+      const [previewResult, setPreviewResult] = useState(null)
 
       const query = useMemo(() => {
         const params = new URLSearchParams()
         if (sessionId !== '') params.set('session', sessionId)
-        if (filters.project !== '') params.set('project', filters.project)
         if (filters.lane !== '') params.set('lane', filters.lane)
         if (filters.status !== '') params.set('status', filters.status)
         if (filters.agent !== '') params.set('agent', filters.agent)
@@ -1044,16 +1282,6 @@ window.__ModuleLoader__.load({
       // maw 缺失或安装失败时轮询健康状态，装好后自动恢复。
       const healthPoll = usePoll('/health', 4000, data === null || data?.sources?.tasks !== 'ok')
 
-      // 首次拿到数据时，若该会话所属工作区对应一个 maw 工程，就默认选中它。
-      useEffect(() => {
-        if (data === null) return
-        const suggested = typeof data.defaultProjectId === 'string' ? data.defaultProjectId : ''
-        if (suggested === '') return
-        const key = `${sessionId}:${suggested}`
-        if (defaultApplied.current === key) return
-        defaultApplied.current = key
-        setFilters(previous => (previous.project === '' ? { ...previous, project: suggested } : previous))
-      }, [data, sessionId])
       const stale = Object.entries(data?.sources ?? {})
         .filter(([, state]) => state !== 'ok').map(([source]) => source)
 
@@ -1069,10 +1297,26 @@ window.__ModuleLoader__.load({
               }, dict.retry)))
         }
         if (data === null) return h('div', { className: 'maw-empty' }, dict.loading)
+        // 当前工作区不对应任何 maw 工程：整块留白，不展示别人的看板。
+        // 顺带把「怎么才能看到」说清楚，否则空白让人以为坏了。
+        if (data.matched === false) {
+          return h('div', { className: 'maw-empty' },
+            h('div', {}, dict.notMawProject),
+            h('div', { className: 'maw-empty__hint' }, dict.notMawProjectHint))
+        }
         return tab === 'board'
           ? h(BoardPane, { data, filters, setFilters, selected, onSelect: setSelected })
-          : h(TopologyPane, { data, selected, onSelect: setSelected, session: sessionId, project: filters.project })
+          // 详情查询要带上当前工程，否则跨工程时会 404（题就在看板上却查不到）。
+          : h(TopologyPane, {
+            data, selected, onSelect: setSelected, session: sessionId,
+            project: String(data?.launch?.projectId ?? data?.defaultProjectId ?? ''),
+          })
       }
+
+      // 工具条上的动作只对「已登记到 maw 的工程」出现：
+      // 未登记的目录没有队列、没有 agent、没有 worktree，按钮露出来只会误导。
+      const registered = data?.launch?.registered === true
+      const actionProjectId = String(data?.launch?.projectId ?? data?.defaultProjectId ?? '')
 
       return h('div', { className: 'maw-view' },
         h('div', { className: 'maw-bar' },
@@ -1087,6 +1331,19 @@ window.__ModuleLoader__.load({
               'aria-selected': tab === 'graph', onClick: () => setTab('graph'),
             }, dict.graph)),
           h('span', { className: 'maw-bar__spacer' }),
+          registered && h(PreviewActions, {
+            actions: data.actions,
+            projectId: actionProjectId,
+            labelOf: action => dict[action.labelKey] ?? action.id,
+            onResult: setPreviewResult,
+            busyId: busyAction,
+            setBusyId: setBusyAction,
+          }),
+          registered && h(LaunchButton, {
+            launch: data.launch,
+            onDone: refresh,
+            onOpened: openSession,
+          }),
           data !== null && h(React.Fragment, null,
             h('div', { className: 'maw-track', role: 'progressbar', 'aria-valuenow': data.percent,
               'aria-valuemin': 0, 'aria-valuemax': 100 },
@@ -1099,6 +1356,20 @@ window.__ModuleLoader__.load({
         stale.length > 0 && h('div', { style: { padding: '8px 16px 0' } },
           h('div', { className: 'maw-warn' }, `${dict.stale}：${stale.join(', ')}`)),
         h(SetupNotice, { health: healthPoll.data, onInstalled: () => { healthPoll.refresh(); refresh() } }),
+        previewResult !== null && h('div', { className: 'maw-preview' },
+          h('div', { className: 'maw-preview__head' },
+            h('span', { className: 'maw-preview__title' }, previewResult.label),
+            h('button', {
+              type: 'button', className: 'maw-preview__close', title: dict.close ?? '关闭',
+              onClick: () => setPreviewResult(null),
+            }, '×')),
+          previewResult.ok
+            ? h(React.Fragment, null,
+              h('div', {}, previewResult.summary),
+              previewResult.lines.length > 0 && h('ul', { className: 'maw-preview__lines' },
+                previewResult.lines.map((line, index) => h('li', { key: `${index}-${line}` }, line))))
+            : h('div', { className: 'maw-preview__err' },
+              `${dict.actionFailed}：${previewResult.error}`)),
         loading && data === null ? h('div', { className: 'maw-empty' }, dict.loading) : body())
     }
 
@@ -1149,6 +1420,21 @@ window.__ModuleLoader__.load({
         } catch {
           dict = TEXT.zh
         }
+
+        // 启动成功后跳进新会话：槽位组件没有 ctx，能力从这里注入。
+        // 用可选注入而不是写进 inject 列表：没有工作区服务的部署也该能用看板，
+        // 只是点了启动不自动跳转。
+        ctx.inject(['uiWorkspace'], scope => {
+          const workspace = scope.get('uiWorkspace')
+          if (workspace === undefined || typeof workspace.openSession !== 'function') return
+          openSession = sessionId => {
+            try {
+              workspace.openSession(sessionId)
+            } catch {
+              // 跳转失败不该影响启动结果本身：会话已经在侧栏里。
+            }
+          }
+        })
 
         // 会话内第三个视图标签，紧挨「对话」「轨迹」。
         ctx.slots.inject('conversation.view', () => ctx.slots.register({
@@ -1212,7 +1498,7 @@ window.__ModuleLoader__.load({
         })
 
         // 工具结果卡片。
-        for (const [key, label] of [['maw_board', 'maw 看板'], ['maw_task', 'maw 任务'], ['maw_deps', 'maw 依赖拓扑']]) {
+        for (const [key, label] of [['maw_board', 'Multi-Agent Workspace'], ['maw_task', 'maw 任务'], ['maw_deps', 'maw 依赖拓扑']]) {
           ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
             name: 'tool.call.toolview',
             key,

@@ -11,12 +11,15 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { execMaw, execMawWrite, clearCache } from './lib/maw-exec.js'
+import { execMaw, execMawWrite, execMawPreview, clearCache } from './lib/maw-exec.js'
 import { loadBoard, loadProjects, filterTasks, taskDetail, dependencyView } from './lib/model.js'
 import { normalizePlan, renderBlueprint, blueprintPath } from './lib/blueprint.js'
 import { detectMaw, installMaw, installMawWithGo } from './lib/maw-install.js'
+import { launchPrompt, launchState, runningInProject, normalizePath } from './lib/launch.js'
+import { runPreview, PREVIEW_ACTIONS } from './lib/preview.js'
 
 export const name = 'dsh-maw'
 
@@ -104,14 +107,41 @@ function sessionDirName(workspacePath) {
 
 /**
  * 由会话 id 反查它所属的工作区路径。
- * 逐个 maw 工程试它的会话目录，命中即返回——不需要读会话内容，也不依赖内部服务。
+ *
+ * 顺序：
+ *  1) `sessionQuery` 按 id 取会话头里的真实 cwd —— 这是准确来源，
+ *     且 `filterSessions` 走「live 优先」的只读语料，不会激活冷会话。
+ *  2) 退回到目录名探测（老实现）：逐个 maw 工程试它的会话目录。
+ *
+ * 第 2 步只作为兜底：目录名是按路径编码推出来的，路径改名或平台差异会让它
+ * 失配；能拿到真实 cwd 时就不该依赖它。
+ *
  * @param {string} sessionId
  * @param {Array<{id: string, path: string}>} projects
- * @returns {{id: string, path: string}|null}
+ * @param {(cwd: string|null) => object|null} [matchByCwd] 按目录匹配工程的函数
+ * @param {(sessionId: string) => Promise<string|null>} [readCwd] 读取会话真实 cwd
+ * @returns {Promise<{id: string, path: string}|null>}
  */
-export function resolveSessionProject(sessionId, projects) {
+export async function resolveSessionProject(sessionId, projects, matchByCwd, readCwd) {
   if (typeof sessionId !== 'string' || sessionId === '') return null
   if (!Array.isArray(projects)) return null
+
+  // 1) 真实 cwd 优先。
+  if (typeof readCwd === 'function' && typeof matchByCwd === 'function') {
+    try {
+      const cwd = await readCwd(sessionId)
+      if (typeof cwd === 'string' && cwd !== '') {
+        const hit = matchByCwd(cwd)
+        // 拿到了 cwd 就以此为准：它不在任何 maw 工程里就是「不是 maw 工程」，
+        // 不该再去猜目录名把一个不相干的工程认领回来。
+        return hit ?? null
+      }
+    } catch {
+      // 读不到就退到目录名探测。
+    }
+  }
+
+  // 2) 兜底：按会话目录名猜。
   for (const project of projects) {
     if (typeof project?.path !== 'string' || project.path === '') continue
     const dir = join(SESSIONS_ROOT, sessionDirName(project.path))
@@ -120,6 +150,31 @@ export function resolveSessionProject(sessionId, projects) {
     }
   }
   return null
+}
+
+/**
+ * 在工程表里找一个「目录恰好是这个 cwd」的工程。
+ *
+ * 容器语义：会话在工程的子目录里运行时仍算这个工程 —— 否则在 `repo/packages/x`
+ * 里开的会话会看不到 `repo` 的队列。取最长的匹配路径，避免 `repo` 与
+ * `repo/sub` 同时登记时认错。
+ *
+ * @param {string} cwd
+ * @param {Array<{id: string, path: string}>} projects
+ * @returns {{id: string, path: string}|null}
+ */
+export function matchProjectByCwd(cwd, projects) {
+  const target = normalizePath(cwd)
+  if (target === '' || !Array.isArray(projects)) return null
+  let best = null
+  for (const project of projects) {
+    const path = normalizePath(project?.path)
+    if (path === '' || typeof project?.id !== 'string' || project.id === '') continue
+    if (target === path || target.startsWith(`${path}/`)) {
+      if (best === null || path.length > normalizePath(best.path).length) best = project
+    }
+  }
+  return best
 }
 
 /**
@@ -319,36 +374,267 @@ export function apply(ctx, rawConfig) {
    * 两步必须指向同一个工程 —— 只按会话目录解析工程、再按请求里的工程 id
    * 过滤，就会「取 A 的题、按 B 的 id 筛」，结果恒为空。
    *
-   * @param {string} projectId 目标工程 id；空串表示沿用自动解析。
+   * `agent` 必须传：会话目录决定在哪个工程里取数。早先这里漏传，落到了
+   * 部署级默认目录，于是 MAW 会话里的工具会读到别的工程（甚至全局）的队列。
+   *
+   * @param {string} projectId 目标工程 id；空串表示沿用会话自己的工程。
    * @param {AbortSignal} [signal]
+   * @param {object} [agent] 发起调用的 agent，用来取它的会话目录
    */
-  const readBoardOf = (projectId, signal) =>
-    loadBoard(settings, cwdFor(ctx, settings), signal, { projectId })
+  const readBoardOf = (projectId, signal, agent) =>
+    loadBoard(settings, cwdFor(ctx, settings, agent), signal, { projectId })
+
+  /**
+   * 解析某个 agent 所属的工程 id。
+   *
+   * 用它的会话目录去匹配 maw 工程登记表（含子目录归属），拿不到就返回空串。
+   * 工具默认按这个 id 取数，实现「只看本工程的队列」。
+   *
+   * @param {object} [agent]
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<string>}
+   */
+  const projectIdForAgent = async (agent, signal) => {
+    const cwd = cwdFor(ctx, settings, agent)
+    const projects = await loadProjects(settings, cwd, signal)
+    return matchProjectByCwd(cwd, projects)?.id ?? ''
+  }
+
+  /**
+   * 工具用的工程 id：显式参数优先，否则用调用者自己的工程。
+   *
+   * 两者都没有时返回空串，由调用方决定是「报错说清楚」还是「继续取数」——
+   * 工具侧一律当成「无可查工程」，绝不退回全局取数。
+   *
+   * @param {object} args 工具参数
+   * @param {object} exec 工具执行上下文
+   * @returns {Promise<{projectId: string, explicit: boolean}>}
+   */
+  const toolProject = async (args, exec) => {
+    const explicit = typeof args?.project === 'string' && args.project !== ''
+    if (explicit) return { projectId: String(args.project), explicit: true }
+    return { projectId: await projectIdForAgent(exec.agent, exec.signal), explicit: false }
+  }
+
+  /**
+   * 读某个会话的真实工作目录。
+   *
+   * 走 `sessionQuery`：它按 id 从「live 优先」的只读语料里取会话头，
+   * 不会为了读一个 cwd 去激活冷会话。
+   * @param {string} sessionId
+   * @returns {Promise<string|null>}
+   */
+  const readSessionCwd = async sessionId => {
+    try {
+      const query = ctx.get('sessionQuery')
+      if (query === undefined || typeof query.filterSessions !== 'function') return null
+      // 磁盘上的目录名有 `session-<id>` 与裸 `<id>` 两种写法，查询用裸 id；
+      // 个别历史会话的 id 本身就带前缀，所以两种都试一次。
+      const candidates = sessionId.startsWith('session-') ? [sessionId] : [sessionId, `session-${sessionId}`]
+      for (const candidate of candidates) {
+        const records = await query.filterSessions([{ kind: 'id', values: [candidate] }])
+        const cwd = Array.isArray(records) ? records[0]?.header?.cwd : undefined
+        if (typeof cwd === 'string' && cwd !== '') return cwd
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
 
   /**
    * 解析一次「这次请求该看哪个工程」。
    *
-   * 优先级：显式 project 参数 > 会话所属工作区对应的工程 > 空（沿用自动解析）。
+   * 优先级：显式 project 参数 > 会话所属工作区对应的工程 > 空（没有可展示的工程）。
+   *
+   * 注意第三个分支：以前这里会「沿用自动解析」，于是任何工作区都能看到某个
+   * 工程的看板；现在没匹配到就没有内容可看，由 `matched=false` 告诉界面不要渲染。
    *
    * @param {string} sessionId 会话 id，用于反查它所属的工作区。
    * @param {string} requestedProject 请求里点名的工程 id。
    * @param {AbortSignal} [signal]
-   * @returns {Promise<{projectId: string, sessionProject: object|null}>}
+   * @returns {Promise<{projectId: string, sessionProject: object|null, matched: boolean}>}
    */
   const resolveScope = async (sessionId, requestedProject, signal) => {
     const projects = await loadProjects(settings, cwdFor(ctx, settings), signal)
-    const sessionProject = resolveSessionProject(sessionId, projects)
+    const sessionProject = await resolveSessionProject(
+      sessionId,
+      projects,
+      cwd => matchProjectByCwd(cwd, projects),
+      readSessionCwd,
+    )
+    // 显式点名时以它为准；否则只看会话自己的工作区。
+    if (requestedProject !== '') {
+      const hit = projects.find(project => project.id === requestedProject)
+      return { projectId: requestedProject, sessionProject: hit ?? sessionProject, matched: hit !== undefined }
+    }
     return {
-      projectId: requestedProject !== '' ? requestedProject : (sessionProject?.id ?? ''),
+      projectId: sessionProject?.id ?? '',
       sessionProject,
+      matched: sessionProject !== null,
     }
   }
 
   /** MAW 模式的 preset id，与本 bundle 的 preset 行一致。 */
   const MAW_PRESET_ID = 'maw'
 
+  /**
+   * 工具在「当前会话不属于任何 maw 工程」时回给模型的话。
+   *
+   * 这里刻意不退回全局取数：MAW 模式下拿到别的工程的队列比拿不到更糟 ——
+   * 会把别人的题当成自己的题派出去。
+   */
+  const NO_PROJECT_TEXT = [
+    '无法确定要查的工程：当前工作目录不属于任何已登记的 maw 工程（或本机 maw 不可用）。',
+    '请确认会话是在已登记工程目录（或它的子目录）里打开的；maw project list 可查已登记工程。',
+    '确实要查某个工程时，显式传 project 参数（工程 id）。',
+  ].join('\n')
+
+  /**
+   * 列出活的 agent。
+   *
+   * 只读 `agents.list()`，不激活任何冷会话 —— 启动判定要足够便宜，
+   * 每次看板轮询都会问一次。
+   * @returns {object[]}
+   */
+  const liveAgents = () => {
+    try {
+      const agents = ctx.get('agents')
+      if (agents === undefined || typeof agents.list !== 'function') return []
+      const list = agents.list()
+      return Array.isArray(list) ? list : []
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * 找一个工程的目录，并说明它是否已在 maw 里登记。
+   *
+   * 工具条上所有按钮都只在「已登记」的工程里出现：未登记的工程没有队列、
+   * 没有 agent、没有 worktree，任何动作都没有意义，按钮露出来只是给人错觉。
+   *
+   * @param {object} board
+   * @param {string} projectId
+   * @returns {{path: string, registered: boolean, projectId: string}}
+   */
+  const resolveProject = (board, projectId) => {
+    const projects = Array.isArray(board?.projects) ? board.projects : []
+    if (projectId !== '') {
+      const hit = projects.find(project => project.id === projectId)
+      const path = hit !== undefined && typeof hit.path === 'string' ? hit.path : ''
+      return { path, registered: path !== '', projectId }
+    }
+    // 没点名工程时看「看板取数用的那个目录」是否就是某个已登记工程的目录。
+    const path = typeof board?.projectPath === 'string' ? board.projectPath : ''
+    const hit = path === ''
+      ? undefined
+      : projects.find(project => typeof project.path === 'string'
+        && normalizePath(project.path) === normalizePath(path))
+    return {
+      path,
+      registered: hit !== undefined,
+      projectId: hit !== undefined ? hit.id : '',
+    }
+  }
+
+  /**
+   * 算出某个工程的启动状态。
+   *
+   * 看板取的是「该工程自己目录里」的数据，但 frontier 是全量图算出来的，
+   * 所以这里按工程再裁一次，免得拿 A 工程的可开工题去点亮 B 工程的按钮。
+   *
+   * @param {object} board 已按工程取好的看板模型
+   * @param {string} projectId 目标工程 id；空串表示沿用看板自身的工程
+   * @returns {{canLaunch: boolean, reason: string, frontier: number, running: number, projectId: string, projectPath: string, registered: boolean, actions: object[]}}
+   */
+  const launchStateOf = (board, projectId) => {
+    const allFrontier = Array.isArray(board?.graph?.frontier) ? board.graph.frontier : []
+    const tasks = Array.isArray(board?.tasks) ? board.tasks : []
+    const frontier = projectId === ''
+      ? allFrontier
+      : allFrontier.filter(id => tasks.some(task => task.id === id && task.projectId === projectId))
+    const resolved = resolveProject(board, projectId)
+    const projectPath = resolved.path
+    // 工程目录没解析出来时不能判定「已运行」：否则按钮会永久禁用且没有原因。
+    const running = projectPath === ''
+      ? []
+      : runningInProject(liveAgents(), projectPath, MAW_PRESET_ID)
+    const state = launchState({ frontier, total: board?.total ?? 0 }, running)
+    // 会话刚建好、agent 还没进入 running 的这一小段窗口，也算「已在执行」，
+    // 否则连点两下会开两个会话。
+    const pending = projectPath !== '' && launching.has(projectPath)
+    // 未登记：整条工具条不渲染，启动也一并藏掉。
+    const canLaunch = resolved.registered
+      && state.canLaunch
+      && !pending
+    return {
+      canLaunch,
+      reason: resolved.registered
+        ? (pending ? 'already-running' : state.reason)
+        : 'unregistered',
+      frontier: state.frontier,
+      running: state.running,
+      projectId: resolved.projectId !== '' ? resolved.projectId : projectId,
+      projectPath,
+      registered: resolved.registered,
+    }
+  }
+
   /** MAW 模式判定与团队开启的诊断记录，供 /api/mode 查看。 */
   const modeLog = []
+
+  /** 正在启动中的工程路径：按钮已按下、会话还没起来，用来挡住重复点击。 */
+  const launching = new Set()
+
+  /**
+   * 发起一次 MAW 模式会话，并把启动指令投进去。
+   *
+   * 走 Host 的 sessionController 而不是浏览器侧的 uiWorkspace.startSession：
+   * 后者只预填草稿，不提交，用户还得自己按回车 —— 那不是「点击启动」。
+   *
+   * @param {string} projectPath 工程目录
+   * @param {string} projectId 工程 id，写进启动指令用来限定工具取数范围
+   * @param {string} [projectName] 工程名，写进启动指令便于模型复述
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<{ok: boolean, sessionId: string, error: string}>}
+   */
+  const startMawSession = async (projectPath, projectId, projectName, signal) => {
+    const controller = ctx.get('sessionController')
+    if (controller === undefined || typeof controller.create !== 'function') {
+      return { ok: false, sessionId: '', error: '会话服务不可用，无法启动' }
+    }
+    if (typeof controller.prompt !== 'function') {
+      return { ok: false, sessionId: '', error: '会话服务不支持投递指令' }
+    }
+
+    let sessionId = ''
+    try {
+      // cwd 而不是 workspaceId：maw 工程不一定登记成 DSH 工作区，
+      // 直接按目录建会话，免得为了启动先把目录登记进去。
+      const created = await controller.create({ cwd: projectPath, agentPreset: MAW_PRESET_ID })
+      sessionId = String(created?.sessionId ?? '')
+    } catch (error) {
+      return { ok: false, sessionId: '', error: `创建会话失败：${String(error?.message ?? error)}` }
+    }
+    if (sessionId === '') return { ok: false, sessionId: '', error: '创建会话没有返回会话 id' }
+
+    try {
+      // 第二个参数是取消信号，不是消息 source —— source 由 sessionController
+      // 自己按调用者身份构造。它内部会直接 signal.throwIfAborted()，所以这里
+      // 必须传一个真实存在的信号；HTTP 路由没有可取消的来源时用新建的。
+      await controller.prompt({
+        requestId: randomUUID(),
+        sessionId,
+        mode: 'queue',
+        content: [{ type: 'text', text: launchPrompt(projectPath, projectId, projectName) }],
+      }, signal ?? new AbortController().signal)
+    } catch (error) {
+      // 会话已经建好，只是指令没进去：把 id 一并返回，用户能在界面里看到并手动再发。
+      return { ok: false, sessionId, error: `投递启动指令失败：${String(error?.message ?? error)}` }
+    }
+    return { ok: true, sessionId, error: '' }
+  }
 
   /**
    * 已知处于 MAW 模式的会话。
@@ -501,9 +787,13 @@ export function apply(ctx, rawConfig) {
     name: 'maw_board',
     description:
       'Read the local maw multi-agent board: progress, per-status counts, ready frontier, '
-      + 'agents, risks and problems. Filter by project, lane, status or agent. Read-only.',
+      + 'agents, risks and problems. Scoped to the calling session\'s own maw project by default; '
+      + 'pass project only to read a different one. Filter by lane, status or agent. Read-only.',
     parameters: {
-      project: { type: 'string', description: 'Project id; omit to use the current session project.' },
+      project: {
+        type: 'string',
+        description: 'Project id; omit to use the calling session\'s own project. Only pass it to read another project on purpose.',
+      },
       lane: { type: 'string', description: 'Lane name, such as 内核与插件; omit for every lane.' },
       status: {
         type: 'string',
@@ -517,9 +807,13 @@ export function apply(ctx, rawConfig) {
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
+      const { projectId } = await toolProject(args, exec)
+      // 没有工程可查时明确说出来，不要退回全局取数把别人的题端上来。
+      if (projectId === '') return NO_PROJECT_TEXT
+      const board = await readBoardOf(projectId, exec.signal, exec.agent)
       const tasks = filterTasks(board.tasks, {
-        project: args?.project,
+        // 始终按工程过滤：即便 maw 那边多给了题，也不会漏到别的工程。
+        project: projectId,
         lane: args?.lane,
         status: args?.status,
         agent: args?.agent,
@@ -536,14 +830,19 @@ export function apply(ctx, rawConfig) {
       + 'write and read scope, acceptance criteria and verify commands. Read-only.',
     parameters: {
       id: { type: 'string', required: true, description: 'Task id, such as RD-2601.' },
-      project: { type: 'string', description: 'Project id the task belongs to; omit to use the current session project.' },
+      project: {
+        type: 'string',
+        description: 'Project id the task belongs to; omit to use the calling session\'s own project.',
+      },
     },
     output: {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
+      const { projectId } = await toolProject(args, exec)
+      if (projectId === '') return NO_PROJECT_TEXT
+      const board = await readBoardOf(projectId, exec.signal, exec.agent)
       return renderTaskText(taskDetail(board, String(args?.id ?? '')))
     },
   })
@@ -556,14 +855,19 @@ export function apply(ctx, rawConfig) {
     parameters: {
       focus: { type: 'string', description: 'Task id to centre the neighbourhood on; omit for the whole graph.' },
       depth: { type: 'number', description: 'Neighbourhood depth around focus; defaults to 3.' },
-      project: { type: 'string', description: 'Project id; omit to use the current session project.' },
+      project: {
+        type: 'string',
+        description: 'Project id; omit to use the calling session\'s own project.',
+      },
     },
     output: {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
+      const { projectId } = await toolProject(args, exec)
+      if (projectId === '') return NO_PROJECT_TEXT
+      const board = await readBoardOf(projectId, exec.signal, exec.agent)
       return renderDepsText(dependencyView(board, { focus: args?.focus, depth: args?.depth }))
     },
   })
@@ -622,7 +926,10 @@ export function apply(ctx, rawConfig) {
       const plan = normalizePlan(args)
       if (!plan.ok) return `任务清单有误，未压入：\n${plan.errors.map(item => `- ${item}`).join('\n')}`
 
-      const board = await readBoard(exec.agent, exec.signal)
+      // 压入也必须落在当前会话自己的工程里：蓝图写错工程等于把题塞给别人。
+      const { projectId } = await toolProject(args, exec)
+      if (projectId === '') return NO_PROJECT_TEXT
+      const board = await readBoardOf(projectId, exec.signal, exec.agent)
       const projectPath = board.projectPath
       if (projectPath === '') return '没有找到 maw 工程路径，未压入。'
 
@@ -825,11 +1132,44 @@ export function apply(ctx, rawConfig) {
     route(`${API_PREFIX}/board`, async (url, response) => {
       const includeDone = url.searchParams.get('includeDone') === 'true' || settings.showDone === true
       // 先定工程，再在它自己目录里取数：取数与过滤必须是同一个工程。
-      const { projectId: effectiveProject, sessionProject } = await resolveScope(
+      const { projectId: effectiveProject, sessionProject, matched } = await resolveScope(
         url.searchParams.get('session') ?? '',
         url.searchParams.get('project') ?? '',
         undefined,
       )
+      // 当前工作区不是 maw 工程时不做取数：没有要展示的工程，取回来也只会是
+      // 另一个工程的题。界面据此整块留白，而不是显示别人的看板。
+      if (!matched) {
+        sendJson(response, 200, {
+          ok: true,
+          matched: false,
+          config: {
+            pollMs: settings.pollMs,
+            showDone: settings.showDone,
+            maxGraphNodes: settings.maxGraphNodes,
+          },
+          defaultProjectId: '',
+          projects: [],
+          generatedAt: new Date().toISOString(),
+          projectPath: '',
+          tasks: [],
+          filteredTasks: [],
+          graph: { frontier: [], levels: {}, edges: [], cycles: [], dangling: [], blockedChains: [], criticalPath: [], levelOf: {}, nodeCount: 0, edgeCount: 0 },
+          counts: {},
+          percent: 0,
+          total: 0,
+          activeAgents: 0,
+          agents: [],
+          risks: [],
+          problems: [],
+          iterations: [],
+          sources: {},
+          errors: [],
+          launch: { canLaunch: false, reason: 'unregistered', frontier: 0, running: 0, projectId: '', projectPath: '', registered: false },
+          actions: [],
+        })
+        return
+      }
       const board = await readBoardOf(effectiveProject, undefined)
       const defaultProjectId = sessionProject?.id ?? ''
       const filtered = filterTasks(board.tasks, {
@@ -841,6 +1181,7 @@ export function apply(ctx, rawConfig) {
       })
       sendJson(response, 200, {
         ok: true,
+        matched: true,
         config: {
           pollMs: settings.pollMs,
           showDone: settings.showDone,
@@ -848,6 +1189,11 @@ export function apply(ctx, rawConfig) {
         },
         defaultProjectId,
         ...board,
+        // 启动按钮的可用性跟看板一起下发：按钮状态与数据必须出自同一次取数，
+        // 否则会出现「题已经没了，按钮还亮着」的瞬间。
+        launch: launchStateOf(board, effectiveProject),
+        // 预览动作清单同样随数据下发：未登记的工程由 registered=false 让前端整条藏掉。
+        actions: PREVIEW_ACTIONS.map(action => ({ id: action.id, labelKey: action.labelKey, hintKey: action.hintKey })),
         // graph 里的分层是全量结构，前端切换筛选时不重新请求也能高亮。
         // 任务集始终受筛选约束：勾「显示已完成」只放开 done/cancelled，
         // 不该把工程/泳道筛掉的任务又放回来。
@@ -930,9 +1276,83 @@ export function apply(ctx, rawConfig) {
       })
     }, 'POST')
 
+    // 启动也是一次显式写动作（会开一个会话），同样 POST + 同源校验。
+    route(`${API_PREFIX}/launch`, async (url, response) => {
+      const { projectId, sessionProject } = await resolveScope(
+        url.searchParams.get('session') ?? '',
+        url.searchParams.get('project') ?? '',
+        undefined,
+      )
+      const effectiveProject = projectId !== '' ? projectId : (sessionProject?.id ?? '')
+      const board = await readBoardOf(effectiveProject, undefined)
+
+      // 落库前再判一次：界面上的按钮状态可能已经过期（别的标签页、别的会话已经启动）。
+      const state = launchStateOf(board, effectiveProject)
+      if (!state.canLaunch) {
+        sendJson(response, 409, { ok: false, sessionId: '', reason: state.reason, error: '', launch: state })
+        return
+      }
+      if (state.projectPath === '') {
+        sendJson(response, 422, { ok: false, sessionId: '', reason: 'no-project', error: '没有解析到工程目录', launch: state })
+        return
+      }
+
+      const path = state.projectPath
+      if (launching.has(path)) {
+        sendJson(response, 409, { ok: false, sessionId: '', reason: 'already-running', error: '', launch: state })
+        return
+      }
+      launching.add(path)
+      let result
+      try {
+        // 工程名只用于指令里的可读复述；拿不到就用 id 顶上。
+        const projectName = board.projects.find(item => item.id === state.projectId)?.name ?? state.projectId
+        result = await startMawSession(path, state.projectId, projectName, undefined)
+      } finally {
+        launching.delete(path)
+      }
+      sendJson(response, result.ok ? 200 : 500, {
+        ok: result.ok,
+        sessionId: result.sessionId,
+        reason: '',
+        error: result.error,
+        // 会话刚建好时 agent 可能还没进 running，这里直接标成已占用，
+        // 免得界面在下一拍轮询前又允许点一次。
+        launch: result.ok
+          ? { ...launchStateOf(board, effectiveProject), canLaunch: false, reason: 'already-running' }
+          : launchStateOf(board, effectiveProject),
+      })
+    }, 'POST')
+
     route(`${API_PREFIX}/mode`, async (_url, response) => {
       sendJson(response, 200, { ok: true, presetId: MAW_PRESET_ID, log: modeLog })
     })
+
+    // 预览型动作：只读/只报告，同样 POST + 同源校验（显式动作一律不挂 GET）。
+    route(`${API_PREFIX}/preview`, async (url, response) => {
+      const actionId = url.searchParams.get('action') ?? ''
+      const { projectId, sessionProject } = await resolveScope(
+        url.searchParams.get('session') ?? '',
+        url.searchParams.get('project') ?? '',
+        undefined,
+      )
+      const effectiveProject = projectId !== '' ? projectId : (sessionProject?.id ?? '')
+      const board = await readBoardOf(effectiveProject, undefined)
+      const resolved = resolveProject(board, effectiveProject)
+      // 未登记的工程没有队列与 worktree，跑这些命令只会失败：直接挡掉。
+      if (!resolved.registered || resolved.path === '') {
+        sendJson(response, 409, {
+          ok: false, id: actionId, summary: '', lines: [], error: '当前工程未在 maw 登记',
+        })
+        return
+      }
+      const result = await runPreview({
+        id: actionId,
+        projectPath: resolved.path,
+        binary: settings.mawBinary,
+      })
+      sendJson(response, result.ok ? 200 : 500, result)
+    }, 'POST')
 
     route(`${API_PREFIX}/refresh`, async (_url, response) => {
       clearCache()

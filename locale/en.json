@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "maw board",
+    "title": "Multi-Agent Workspace",
     "description": "Read the local maw multi-agent board in a session: progress, task lanes, the dependency topology and agent status. Read-only; it never claims, submits or merges a task.",
     "detail": "docs/DETAIL.md"
   }
