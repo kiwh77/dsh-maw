@@ -8,7 +8,7 @@
 #     阻塞、清理这些会动 worktree 与分支的命令不在此列。
 - insert:
     - id: dsh-maw
-      name: '@local/dsh-maw'
+      name: 'dsh-maw'
       config:
         projects: []
         pollMs: 5000

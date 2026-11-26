@@ -69,7 +69,7 @@ GOBIN=~/.local/bin go install github.com/kiwh77/maw/cmd/maw@latest
 
 ```yaml
 - id: dsh-maw
-  name: '@local/dsh-maw'
+  name: 'dsh-maw'
   config:
     projects: []          # 项目路径；空 = 用会话目录，再退回 maw 项目登记
     pollMs: 5000          # 前端刷新间隔（毫秒）
@@ -114,4 +114,4 @@ GOBIN=~/.local/bin go install github.com/kiwh77/maw/cmd/maw@latest
 
 ## 卸载
 
-在 **设置 → 插件** 里停用或移除 `@local/dsh-maw`。插件只注册工具、HTTP 路由和两个界面挂载点，卸载后不留残留状态。
+在 **设置 → 插件** 里停用或移除 `dsh-maw`。插件只注册工具、HTTP 路由和两个界面挂载点，卸载后不留残留状态。

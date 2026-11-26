@@ -1,5 +1,5 @@
 {
-  "name": "@local/dsh-maw",
+  "name": "dsh-maw",
   "version": "1.0.0",
   "private": true,
   "type": "module",
