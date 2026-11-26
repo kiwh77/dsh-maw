@@ -746,7 +746,7 @@ window.__ModuleLoader__.load({
     }
 
     /** 拓扑画布。 */
-    function TopologyPane({ data, selected, onSelect }) {
+    function TopologyPane({ data, selected, onSelect, session, project }) {
       const canvasRef = useRef(null)
       const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 })
       const [showAll, setShowAll] = useState(false)
@@ -827,7 +827,12 @@ window.__ModuleLoader__.load({
         if (selected === null || selected === undefined) { setDetail(null); return undefined }
         let alive = true
         const controller = new AbortController()
-        getJson(`/task?id=${encodeURIComponent(selected)}`, controller.signal)
+        // 带上会话与当前工程：看板按工程取数，详情也必须查同一个工程，
+        // 否则跨工程时会 404（任务明明就在看板上）。
+        const params = new URLSearchParams({ id: selected })
+        if (typeof session === 'string' && session !== '') params.set('session', session)
+        if (typeof project === 'string' && project !== '') params.set('project', project)
+        getJson(`/task?${params.toString()}`, controller.signal)
           .then(body => { if (alive) { setDetail(body.task); setDetailError(null) } })
           .catch(error => {
             if (!alive || error?.name === 'AbortError') return
@@ -1066,7 +1071,7 @@ window.__ModuleLoader__.load({
         if (data === null) return h('div', { className: 'maw-empty' }, dict.loading)
         return tab === 'board'
           ? h(BoardPane, { data, filters, setFilters, selected, onSelect: setSelected })
-          : h(TopologyPane, { data, selected, onSelect: setSelected })
+          : h(TopologyPane, { data, selected, onSelect: setSelected, session: sessionId, project: filters.project })
       }
 
       return h('div', { className: 'maw-view' },

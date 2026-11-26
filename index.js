@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { execMaw, execMawWrite, clearCache } from './lib/maw-exec.js'
-import { loadBoard, filterTasks, taskDetail, dependencyView } from './lib/model.js'
+import { loadBoard, loadProjects, filterTasks, taskDetail, dependencyView } from './lib/model.js'
 import { normalizePlan, renderBlueprint, blueprintPath } from './lib/blueprint.js'
 import { detectMaw, installMaw, installMawWithGo } from './lib/maw-install.js'
 
@@ -312,6 +312,38 @@ export function apply(ctx, rawConfig) {
   /** 读一次看板。 */
   const readBoard = (agent, signal) => loadBoard(settings, cwdFor(ctx, settings, agent), signal)
 
+  /**
+   * 读一次「指定工程的」看板。
+   *
+   * 取数要分两步：先在某个工程目录里跑 maw 拿数据，再按工程 id 过滤任务。
+   * 两步必须指向同一个工程 —— 只按会话目录解析工程、再按请求里的工程 id
+   * 过滤，就会「取 A 的题、按 B 的 id 筛」，结果恒为空。
+   *
+   * @param {string} projectId 目标工程 id；空串表示沿用自动解析。
+   * @param {AbortSignal} [signal]
+   */
+  const readBoardOf = (projectId, signal) =>
+    loadBoard(settings, cwdFor(ctx, settings), signal, { projectId })
+
+  /**
+   * 解析一次「这次请求该看哪个工程」。
+   *
+   * 优先级：显式 project 参数 > 会话所属工作区对应的工程 > 空（沿用自动解析）。
+   *
+   * @param {string} sessionId 会话 id，用于反查它所属的工作区。
+   * @param {string} requestedProject 请求里点名的工程 id。
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<{projectId: string, sessionProject: object|null}>}
+   */
+  const resolveScope = async (sessionId, requestedProject, signal) => {
+    const projects = await loadProjects(settings, cwdFor(ctx, settings), signal)
+    const sessionProject = resolveSessionProject(sessionId, projects)
+    return {
+      projectId: requestedProject !== '' ? requestedProject : (sessionProject?.id ?? ''),
+      sessionProject,
+    }
+  }
+
   /** MAW 模式的 preset id，与本 bundle 的 preset 行一致。 */
   const MAW_PRESET_ID = 'maw'
 
@@ -485,7 +517,7 @@ export function apply(ctx, rawConfig) {
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoard(exec.agent, exec.signal)
+      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
       const tasks = filterTasks(board.tasks, {
         project: args?.project,
         lane: args?.lane,
@@ -504,13 +536,14 @@ export function apply(ctx, rawConfig) {
       + 'write and read scope, acceptance criteria and verify commands. Read-only.',
     parameters: {
       id: { type: 'string', required: true, description: 'Task id, such as RD-2601.' },
+      project: { type: 'string', description: 'Project id the task belongs to; omit to use the current session project.' },
     },
     output: {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoard(exec.agent, exec.signal)
+      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
       return renderTaskText(taskDetail(board, String(args?.id ?? '')))
     },
   })
@@ -523,13 +556,14 @@ export function apply(ctx, rawConfig) {
     parameters: {
       focus: { type: 'string', description: 'Task id to centre the neighbourhood on; omit for the whole graph.' },
       depth: { type: 'number', description: 'Neighbourhood depth around focus; defaults to 3.' },
+      project: { type: 'string', description: 'Project id; omit to use the current session project.' },
     },
     output: {
       schema: { type: 'string' },
       render: (_args, value) => [{ type: 'text', text: String(value) }],
     },
     async execute(args, exec) {
-      const board = await readBoard(exec.agent, exec.signal)
+      const board = await readBoardOf(String(args?.project ?? ''), exec.signal)
       return renderDepsText(dependencyView(board, { focus: args?.focus, depth: args?.depth }))
     },
   })
@@ -789,13 +823,15 @@ export function apply(ctx, rawConfig) {
     }
 
     route(`${API_PREFIX}/board`, async (url, response) => {
-      const board = await readBoard(undefined, undefined)
       const includeDone = url.searchParams.get('includeDone') === 'true' || settings.showDone === true
-      // 会话来自哪个工作区，就默认选中哪个工程。
-      const sessionProject = resolveSessionProject(url.searchParams.get('session') ?? '', board.projects)
+      // 先定工程，再在它自己目录里取数：取数与过滤必须是同一个工程。
+      const { projectId: effectiveProject, sessionProject } = await resolveScope(
+        url.searchParams.get('session') ?? '',
+        url.searchParams.get('project') ?? '',
+        undefined,
+      )
+      const board = await readBoardOf(effectiveProject, undefined)
       const defaultProjectId = sessionProject?.id ?? ''
-      const requestedProject = url.searchParams.get('project') ?? ''
-      const effectiveProject = requestedProject !== '' ? requestedProject : defaultProjectId
       const filtered = filterTasks(board.tasks, {
         project: effectiveProject !== '' ? effectiveProject : undefined,
         lane: url.searchParams.get('lane') ?? undefined,
@@ -821,9 +857,12 @@ export function apply(ctx, rawConfig) {
     })
 
     route(`${API_PREFIX}/graph`, async (url, response) => {
-      const board = await readBoard(undefined, undefined)
-      const sessionProject = resolveSessionProject(url.searchParams.get('session') ?? '', board.projects)
-      const project = url.searchParams.get('project') ?? sessionProject?.id ?? ''
+      const { projectId: project, sessionProject } = await resolveScope(
+        url.searchParams.get('session') ?? '',
+        url.searchParams.get('project') ?? '',
+        undefined,
+      )
+      const board = await readBoardOf(project, undefined)
       const scoped = project === '' ? board.tasks : board.tasks.filter(task => task.projectId === project)
       sendJson(response, 200, {
         ok: true,
@@ -850,7 +889,12 @@ export function apply(ctx, rawConfig) {
 
     route(`${API_PREFIX}/task`, async (url, response) => {
       const id = url.searchParams.get('id') ?? ''
-      const board = await readBoard(undefined, undefined)
+      const { projectId } = await resolveScope(
+        url.searchParams.get('session') ?? '',
+        url.searchParams.get('project') ?? '',
+        undefined,
+      )
+      const board = await readBoardOf(projectId, undefined)
       const detail = taskDetail(board, id)
       if (detail === null) {
         sendJson(response, 404, { ok: false, error: `没有找到任务 ${id}` })

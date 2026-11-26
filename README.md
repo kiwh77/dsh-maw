@@ -28,7 +28,7 @@
 https://github.com/kiwh77/dsh-maw
 
 # 2) 从本地目录安装（开发时用）
-#    已把 checkout 放在 ~/dsh-plugins/dsh-maw，软链接进 profile，改完即生效
+#    本机 checkout 在 ~/Documents/Projects/dsh-plugins/dsh-maw，软链接进 profile
 ```
 
 安装后在「插件」页能看到 **maw 看板** 一行；会话顶部的视图标签会多出一个「看板」。
