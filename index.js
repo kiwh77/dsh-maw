@@ -15,7 +15,7 @@ import { execMaw, execMawWrite, execMawPreview, clearCache } from './lib/maw-exe
 import { loadBoard, loadProjects, filterTasks, taskDetail, dependencyView, resolveIterationFilter } from './lib/model.js'
 import { normalizePlan, renderBlueprint, blueprintPath, TASK_ID_PATTERN } from './lib/blueprint.js'
 import { normalizeModelGroups, resolveTaskModel } from './lib/model-routing.js'
-import { detectMaw, installMaw, installMawWithGo } from './lib/maw-install.js'
+import { detectMaw, installMaw, installMawWithGo, latestReleaseTag, versionStatus } from './lib/maw-install.js'
 import { launchPrompt, launchState, runningInProject, normalizePath } from './lib/launch.js'
 import { runPreview, PREVIEW_ACTIONS } from './lib/preview.js'
 
@@ -318,6 +318,44 @@ export function apply(ctx, rawConfig) {
   const runtime = {
     maw: detectMaw(settings.mawBinary),
     install: { status: 'idle', at: '', error: '', version: '', tag: '' },
+    // 版本跟进：maw 发得比插件勤，已装好的那份不会自己变新。
+    // 这里只缓存「最新 release 是什么」，检查本身不下载任何东西。
+    upstream: { checkedAt: '', tag: '', status: 'unknown', error: '' },
+  }
+
+  /**
+   * 查一次上游最新 release，判断本机装的 maw 是否落后。
+   *
+   * 只读网络、不装东西：把「有新版本」这件事暴露出来，装不装仍由人决定。
+   * 结果缓存一段时间，避免每轮看板轮询都去打 GitHub API。
+   * @param {{force?: boolean, signal?: AbortSignal}} [options]
+   * @returns {Promise<typeof runtime.upstream>}
+   */
+  const checkUpstream = async (options = {}) => {
+    const force = options.force === true
+    const ttlMs = 6 * 60 * 60 * 1000
+    const fresh = runtime.upstream.checkedAt !== ''
+      && Date.now() - Date.parse(runtime.upstream.checkedAt) < ttlMs
+    if (!force && fresh) return runtime.upstream
+
+    const latest = await latestReleaseTag(options.signal)
+    if (!latest.ok) {
+      runtime.upstream = {
+        checkedAt: new Date().toISOString(),
+        tag: '',
+        status: 'unknown',
+        error: latest.error,
+      }
+      return runtime.upstream
+    }
+    runtime.maw = detectMaw(settings.mawBinary)
+    runtime.upstream = {
+      checkedAt: new Date().toISOString(),
+      tag: latest.tag,
+      status: versionStatus(runtime.maw.version, latest.tag),
+      error: '',
+    }
+    return runtime.upstream
   }
 
   /**
@@ -1086,9 +1124,9 @@ export function apply(ctx, rawConfig) {
         type: 'string',
         required: true,
         enum: ['status', 'install', 'go'],
-        description: 'status reports the current runtime; install downloads the official release; go uses the Go toolchain.',
+        description: 'status reports the current runtime and whether a newer maw release exists; install downloads the official release; go uses the Go toolchain.',
       },
-      version: { type: 'string', description: 'Release tag such as v0.4.0; defaults to latest.' },
+      version: { type: 'string', description: 'Release tag such as v0.5.0; defaults to latest.' },
     },
     output: {
       schema: { type: 'string' },
@@ -1098,6 +1136,7 @@ export function apply(ctx, rawConfig) {
       const action = String(args?.action ?? 'status')
       if (action === 'status') {
         runtime.maw = detectMaw(settings.mawBinary)
+        const upstream = await checkUpstream({ signal: exec.signal })
         const lines = [
           runtime.maw.found
             ? `maw 已就绪：${runtime.maw.version}（${runtime.maw.path}）`
@@ -1105,6 +1144,16 @@ export function apply(ctx, rawConfig) {
           `自动安装：${settings.autoInstall ? '开' : '关'} · 目标版本 ${settings.mawVersion}`,
           `最近一次安装：${runtime.install.status}${runtime.install.error === '' ? '' : `（${runtime.install.error}）`}`,
         ]
+        // 版本跟进的一句话结论：只报告，不动手。
+        if (upstream.status === 'outdated') {
+          lines.push(`有新版本：${upstream.tag}（本机 ${runtime.maw.version}）。要升级就跑 action=install。`)
+        } else if (upstream.status === 'current') {
+          lines.push(`已是最新：${upstream.tag}。`)
+        } else if (upstream.status === 'ahead') {
+          lines.push(`本机比最新 release 还新：本机 ${runtime.maw.version}，最新 ${upstream.tag}。`)
+        } else {
+          lines.push(`查不到最新版本${upstream.error === '' ? '' : `：${upstream.error}`}。`)
+        }
         return lines.join('\n')
       }
 
@@ -1119,6 +1168,8 @@ export function apply(ctx, rawConfig) {
         clearCache()
         runtime.maw = detectMaw(result.path)
         runtime.install = { status: 'installed', at: new Date().toISOString(), error: '', version: result.version, tag: '' }
+        // 刚装过，之前的「有新版本」判断已经过期，下一次 status 重新问一次。
+        runtime.upstream = { checkedAt: '', tag: '', status: 'unknown', error: '' }
         return `已用 go install 装好 maw ${result.version}（${result.path}）。`
       }
 
@@ -1126,6 +1177,7 @@ export function apply(ctx, rawConfig) {
       if (typeof args?.version === 'string' && args.version !== '') settings.mawVersion = args.version
       const result = await ensureMaw(exec.signal)
       settings.mawVersion = savedVersion
+      if (result.ok) runtime.upstream = { checkedAt: '', tag: '', status: 'unknown', error: '' }
       return result.ok
         ? `已装好 maw ${result.version}（${runtime.maw.path}）。`
         : `安装失败：${result.error}`
@@ -1351,10 +1403,13 @@ export function apply(ctx, rawConfig) {
 
     route(`${API_PREFIX}/health`, async (_url, response) => {
       runtime.maw = detectMaw(settings.mawBinary)
+      // 这里只回缓存，不联网：health 是 4 秒一次的轮询，不能每次去问 GitHub。
+      // 主动查上游发生在 maw_setup status（人显式问的时候）。
       sendJson(response, 200, {
         ok: true,
         maw: runtime.maw,
         install: runtime.install,
+        upstream: runtime.upstream,
         routeConflicts,
         config: {
           autoInstall: settings.autoInstall,

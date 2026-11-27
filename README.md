@@ -82,18 +82,22 @@ https://github.com/kiwh77/dsh-maw
 
 - **激活时检测**：查 PATH 与常见安装位置（`~/.local/bin`、`/opt/homebrew/bin`、`/usr/local/bin`、`~/go/bin`）。
 - **缺失时自动安装**（`autoInstall: true`，默认开）：从官方 release 取本平台包，**校验 sha256** 后解包装到 `~/.local/bin/maw`，再跑一次 `maw --version` 自证。全程后台，不阻塞会话。
+- **版本跟进**：装好之后不会自己变新，所以 `maw_setup` 的 `status` 会顺手查一次上游最新 release，直接告诉你「有新版本 vX.Y.Z」还是「已是最新」。判断只比数字骨架，`0.5.0-dev` 这类本地构建不会被拉回 release。查到的结果缓存 6 小时，`/health` 只回缓存、不联网，所以 4 秒一次的轮询不会去打 GitHub。
 - **前端提示**：maw 缺失或安装失败时，看板页顶部出现一条提示与「安装 maw」按钮。
 - **工具**：`maw_setup`，`action: status | install | go`。
-- **接口**：`GET /dsh-maw/api/health`（状态）、`POST /dsh-maw/api/install`（安装，同源校验）。
+- **接口**：`GET /dsh-maw/api/health`（状态，含 `upstream` 版本跟进结果）、`POST /dsh-maw/api/install`（安装，同源校验）。
 
 取不到 checksums 或校验不匹配时**宁可失败也不安装**。想手工装：
 
 ```bash
-# 官方预编译包
-curl -L -o maw.tgz https://github.com/kiwh77/maw/releases/latest/download/maw_0.4.0_darwin_arm64.tar.gz
+# 官方预编译包：先去 releases 页确认当前版本号，资产名里带版本
+# https://github.com/kiwh77/maw/releases/latest
+curl -L -o maw.tgz https://github.com/kiwh77/maw/releases/download/v0.5.0/maw_0.5.0_darwin_arm64.tar.gz
 # 或者用 Go
 GOBIN=~/.local/bin go install github.com/kiwh77/maw/cmd/maw@latest
 ```
+
+`releases/latest/download/<资产名>` 也常见，但资产名里必须写版本号，版本一换就会 404，所以上面写成显式 tag 更不容易踩坑。
 
 ## 工程隔离
 
@@ -101,7 +105,7 @@ maw 可以在一台机器上登记多个工程，而 `maw board` 本身是**跨�
 
 | 入口 | 隔离方式 |
 |---|---|
-| 看板 / 拓扑界面 | 只展示会话工作目录对应的那个工程；不属于任何工程时整块留白 |
+| 看板 / 拓扑界面 | 只展示会话工作目录对应的那个工程；不属于任何工程时只显示「暂无任务。」并隐藏问题入口 |
 | `maw_board` / `maw_task` / `maw_deps` / `maw_plan_push` | 默认按调用会话的工程取数；没有匹配工程时报错，不退回全局 |
 | 启动按钮 | 启动指令里写入工程 id，并要求 MAW 模式调用工具时带 `project` 参数 |
 | 风险 / 问题 / 迭代 | 来自全局快照，取回后按工程 id 在本地裁剪 |
@@ -175,35 +179,64 @@ maw 可以在一台机器上登记多个工程，而 `maw board` 本身是**跨�
     maxGraphNodes: 300    # 拓扑图节点上限，超出按状态折叠
     mawBinary: ''         # maw 可执行文件路径；空 = 从 PATH 与常见安装位置查找
     autoInstall: true     # maw 缺失时是否自动安装
-    mawVersion: latest    # 安装的版本；可钉成 v0.4.0
+    mawVersion: latest    # 安装的版本；可钉成具体 tag，如 v0.5.0
     installDir: ''        # 安装目录；空 = ~/.local/bin
     allowGoFallback: false # 自动安装失败后是否退到 go install
+    modelGroups:          # MAW 子智能体能力等级。provider 和 model 须替换为本机 DSH 的 ID
+      basic:
+        - provider: your-provider
+          model: your-small-model
+      advanced:
+        - provider: your-provider
+          model: your-large-model
+          reasoning_effort: high # 可选，取值由模型提供方决定
 ```
+
+等级名由配置决定，使用小写字母、数字和连字符，并以字母开头。每组第一项是该等级的默认模型。按等级派发时，模型不可用或未授权会返回 DSH 错误。
+
+在 DSH 的子智能体设置中启用「允许 Agent 为子智能体选择模型」，把要用的模型加入授权列表，再开一个新的 MAW 会话。可在会话中用 `list_subagent_models` 查提供方、模型和推理强度，用 `maw_model_groups` 查看本插件配置的等级。
 
 ## MAW 模式怎么走
 
 1. 在模式选择器里选「MAW 模式」。
 2. 交待任务。Agent 会拆成带 `writeScope` / `deps` / `acceptance` / `verify` 的题卡。
 3. 先调 `maw_plan_push`（不带 `apply`）看校验结果与理论并行度，确认后再带 `apply: true` 压入。
-4. 压入后按依赖层次用团队并行执行，收尾给一张结果表。
+4. 压入后按依赖层次调用 `maw_delegate`。插件根据已保存的题卡创建子智能体，子智能体按题号领取并执行。
+
+题卡可选填 `capabilityTier: "basic"` 或 `capabilityTier: "advanced"`。需要指定具体模型时，填写 `model: { provider: "your-provider", model: "your-model" }`，也可以加 `reasoning_effort`。模型选择优先级依次为题卡的精确模型、能力等级的默认模型、DSH 的默认子智能体策略。
+
+手写 CLI 蓝图时，把配置写在任务 `goal` 首行，正文另起一行。现有 maw 运行时会随任务目标保存这条声明，独立运行的 CLI worker 也可以从题卡中看到它。模型由 DSH 的 `maw_delegate` 应用。
+
+```toml
+goal = '''
+[maw-model] {"capabilityTier":"advanced"}
+检查跨模块状态迁移，修复并补齐验证。
+'''
+```
 
 团队协作由插件在预设切到 MAW 时自动打开；开关失败只记诊断，不会让会话创建失败。
 
 ## 与 maw 的版本关系
 
-插件在 maw `main`（本地 0.4.1-dev）上开发，官方 release 目前是 **v0.4.0**。两者都验过：
+插件不绑定某个特定 maw 版本：它只消费 maw 的 JSON 输出，字段读取全部走容错访问器，maw 多给字段会被忽略、少给字段不会崩。已实测的版本：
 
-| 命令 | v0.4.0 | 0.4.1-dev |
+| 能力 | 0.4.1 | 0.5.0 |
 |---|---|---|
-| `task list --json`（含 `deps`/`acceptance`/`extra`） | ✅ | ✅ |
+| `task list` / `task show`（含 `deps`/`acceptance`/`extra`） | ✅ | ✅ |
 | `board --json`（counts / snapshot） | ✅ | ✅ |
+| `agents` / `project list` / `iteration list` | ✅ | ✅ |
 | `plan check` / `plan apply` | ✅ | ✅ |
+| `goal` 里的 `[maw-model]` 声明原样保留 | ✅ | ✅ |
+| 全量测试套件 | 通过 | 通过（103 项） |
 
-装哪个都行；想跟最新行为就走 `mawBinary` 指到你自己的构建产物。
+0.5.0 移除了 Lead/System/Managed 调度层、`node`/`stats` 子命令和 Pi 运行时。插件本来就没用到这些（`node list` 曾留在只读白名单里，已随 0.5.0 一起删掉），所以升级不需要改配置。
+
+想跟最新行为就走 `mawBinary` 指到你自己的构建产物；用 `maw_setup status` 可以随时问「本机这份是不是最新的」。
 
 ## 限制
 
-- 只支持 **maw 0.4.1** 的 JSON 输出格式。字段读取全部走容错访问器，maw 少给字段不会崩，但新版本若改字段名，对应展示会留空。
+- 依赖 maw 的 JSON 输出格式，但**不绑定具体版本**。上游若改字段名，对应展示会留空而不是报错 —— 这是有意的降级策略，可用 `maw_setup status` 加上面那张表排查。
+- 版本跟进只判断「本机是否落后于最新 release」，不会自动升级：装新版本是一次显式动作（`maw_setup action=install`）。
 - 拓扑图默认只渲染未完成子图（本机约 60 个节点）；勾选「显示全部」才会渲染全部节点。
 - 任一数据源失败时，该源标记为降级并在界面提示，其余部分照常渲染。
 - 未实现 `maw status report` 心跳上报 —— 这是写操作，按设计排除。

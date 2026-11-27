@@ -8,12 +8,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, chmodSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 import {
   MAW_REPO, releaseTarget, releaseUrls, checksumFor, sha256File, detectMaw,
+  compareVersions, versionStatus,
 } from '../lib/maw-install.js'
 
 test('平台与架构映射到 release 资产段', () => {
@@ -75,4 +76,38 @@ test('检测：显式路径优先，跑不起来就当没找到', () => {
   // 指向一个不存在的路径时，应回退到常见位置而不是直接报错。
   const withBogus = detectMaw('/nonexistent/maw')
   assert.equal(typeof withBogus.found, 'boolean')
+})
+
+test('版本比较：只比数字骨架，dev 后缀不触发升级', () => {
+  assert.ok(compareVersions('0.4.1', 'v0.5.0') < 0)
+  assert.equal(compareVersions('v0.5.0', '0.5.0'), 0)
+  assert.equal(compareVersions('0.5.0-dev', 'v0.5.0'), 0)
+  assert.ok(compareVersions('0.10.0', 'v0.9.0') > 0, '十位要比个位大，不能按字符串比')
+})
+
+test('版本状态：落后 / 持平 / 领先 / 读不懂', () => {
+  assert.equal(versionStatus('0.4.1', 'v0.5.0'), 'outdated')
+  assert.equal(versionStatus('0.5.0', 'v0.5.0'), 'current')
+  assert.equal(versionStatus('0.6.0', 'v0.5.0'), 'ahead')
+  assert.equal(versionStatus('', 'v0.5.0'), 'unknown')
+  // 读不懂的版本号不能当成「已是最新」，否则会把升级挡在外面。
+  assert.equal(versionStatus('garbage', 'v0.5.0'), 'unknown')
+})
+
+test('detectMaw only：目标跑不起来时不会回退到别处的 maw', () => {
+  // 造一个存在但不可执行的假 maw：原地覆盖被写坏时就是这个形态。
+  const broken = join(tmpdir(), `dsh-maw-broken-${process.pid}`)
+  writeFileSync(broken, 'not an executable')
+  chmodSync(broken, 0o644)
+  try {
+    const only = detectMaw(broken, { only: true })
+    assert.equal(only.found, false, '不可执行就是没找到，不能拿别处的版本顶替')
+    assert.equal(only.version, '')
+  } finally {
+    rmSync(broken, { force: true })
+  }
+})
+
+test('detectMaw only：没有 explicit 时什么都不查', () => {
+  assert.equal(detectMaw('', { only: true }).found, false)
 })

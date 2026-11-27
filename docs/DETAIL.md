@@ -7,10 +7,10 @@
 maw 的写命令（`next --claim`、`submit`、`merge`、`block`、`prune`）会改任务状态、动 worktree、删分支。这些动作需要明确的上下文与人的判断，不该由一个看板插件在后台代劳。所以本插件只执行白名单内的只读子命令：
 
 ```
-board · task list · task show · agents · project list · iteration list · node list · stats
+board · task list · task show · agents · project list · iteration list
 ```
 
-任何不在表内的调用在执行器入口就被拒绝。
+任何不在表内的调用在执行器入口就被拒绝。白名单只收「maw 里真实存在且会输出 JSON」的只读命令：`node` 在 0.5.0 被移除、`stats` 是不输出 JSON 的父命令，两条都已从表里拿掉。
 
 唯一不经过 maw 写命令的主动作是看板上的**启动**按钮：它不改任务状态、不领取、不动 worktree，只是新建一个 MAW 模式的 DSH 会话，把「按依赖顺序开工」的指令投进去。maw 侧真正领取与合入仍由 maw worker 负责。
 
@@ -144,6 +144,7 @@ Host 侧对命令结果做 5 秒缓存并合并并发请求，所以前端轮询
 
 ## 已知限制
 
-- 绑定 maw 0.4.1 的 JSON 字段名。
+- 依赖 maw 的 JSON 输出格式，但不绑定具体版本；字段读取走容错访问器，上游改字段名时对应展示留空而不报错。0.4.1 与 0.5.0 均已实测通过。
+- 版本跟进只报告「本机是否落后于最新 release」，不会自动升级；装新版是显式动作。
 - 拓扑图超过 `maxGraphNodes` 时默认只渲染未完成子图。
 - 不做 `maw status report` 心跳上报（写操作）。
