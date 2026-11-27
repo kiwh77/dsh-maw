@@ -41,12 +41,22 @@ if (args[0] === 'project' && args[1] === 'list') {
       : [],
   })
 } else if (args[0] === 'task' && args[1] === 'list') {
+  const routing = {
+    'Routing-Basic': { capabilityTier: 'basic' },
+    'Routing-Advanced': { capabilityTier: 'advanced' },
+    'Routing-Override': { capabilityTier: 'advanced', model: { provider: 'provider-c', model: 'specific' } },
+    'Routing-Unknown': { capabilityTier: 'unconfigured' },
+  }
+  const ids = process.env.FAKE_MAW_ROUTING === '1'
+    ? [...taskIds, ...Object.keys(routing)]
+    : taskIds
   emit({
     ok: true,
-    count: taskIds.length,
+    count: ids.length,
     project_id: 'p1',
-    tasks: taskIds.map(id => ({
+    tasks: ids.map(id => ({
       id, project_id: 'p1', project_name: 'demo', title: `task ${id}`, status: 'ready', lane: 'main',
+      ...(routing[id] === undefined ? {} : { extra: { goal: `[maw-model] ${JSON.stringify(routing[id])}` } }),
     })),
   })
 } else if (args[0] === 'agents') {

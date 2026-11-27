@@ -18,7 +18,7 @@ board · task list · task show · agents · project list · iteration list · n
 
 一台机器可以登记多个 maw 工程。`maw board` 是跨工程的全局看板（实测本机 6 个工程、389 题），`task list` / `agents` 则是按目录（`-C`）隔离的。插件所有入口都收口到「当前会话所属的那个工程」：
 
-- **界面**：工程由会话工作目录决定（真实 cwd 优先，走 `sessionQuery` 读会话头，不激活冷会话）；子目录归属父工程，取最长匹配。不属于任何工程时整块留白。
+- **界面**：工程由会话工作目录决定（真实 cwd 优先，走 `sessionQuery` 读会话头，不激活冷会话）；子目录归属父工程，取最长匹配。不属于任何工程时内容区只显示「暂无任务。」，问题按钮也隐藏。
 - **工具**：`maw_board` / `maw_task` / `maw_deps` / `maw_plan_push` 默认按调用会话的工程取数。早先这四个工具取数时丢掉了 agent，落到部署级 `defaultDirectory`，于是 MAW 会话会读到别的工程甚至全局队列 —— 这是「发起任务时看到了所有任务」的根因。
 - **启动指令**：写入工程 id 与工程名，并明确要求 MAW 模式调用工具时带 `project="<id>"`；MAW preset 的 persona 里也加了同一条边界。
 - **风险 / 问题 / 迭代**：全局快照自带 `project_id`，取回后本地裁剪。
@@ -60,7 +60,7 @@ maw 有三十来个子命令，做成按钮的只有三条**默认无副作用**
 
 ### 会话视图标签
 
-会话主区顶部在「对话」「轨迹」旁边多一个「看板」标签，点开即看板。它和对话共用同一块区域，不占额外屏幕。
+会话主区顶部在「对话」「轨迹」旁边多一个「MAW看板」标签，点开即看板。它和对话共用同一块区域，不占额外屏幕。
 
 从哪个工作区进来的会话，就看哪个工程：DSH 把每个工作区的会话放在按路径编码的目录下，插件据此把会话 id 反查成工作区路径，再与 maw 登记的工程比对；命中就把工程筛选默认选上。只登记了一个工程时，从其他工作区进来也默认落到它。
 
@@ -94,6 +94,7 @@ maw 有三十来个子命令，做成按钮的只有三条**默认无副作用**
 
 - **拆题**：题卡必须带 `id` / `title` / `writeScope` / `acceptance` / `verify`；`acceptance` 与 `verify` 是 maw 的硬要求，缺了压不进去。
 - **压入**：`maw_plan_push` 把清单渲染成 blueprint 写到 `.multiagent/blueprint.maw-<时间戳>.toml`，先跑 `maw plan check`，再按 `apply` 决定是否 `plan apply --yes`。文件名带时间戳，不覆盖既有蓝图；apply 是增量合入，不带 `--reset`。
+- **模型派发**：`maw_delegate` 读取当前工程可开工题卡，用题卡指定模型或能力等级的默认模型调用 DSH 原生 `subagent`。子智能体负责指定题号的领取和执行。能力等级随 `goal` 保存，`maw_task` 和看板详情会解析这项信息。配置见 [README](../README.md#配置)。
 - **团队协作**：预设切到 MAW 时自动 `agentTeams.setEnabled(agent, true)`。因为切换事件是在会话写入过程中发出的，插件延后一拍再开，避免 append 重入；失败只记诊断。
 
 诊断入口：`GET /dsh-maw/api/mode` 返回 `{ presetId, log }`，`log` 里每条记录包含触发来源、判定依据、团队开关结果。

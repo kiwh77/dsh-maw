@@ -43,12 +43,13 @@ function scenario(env = {}) {
  * 建一个能注册工具、并能按 agent 返回会话目录的假 ctx。
  * @param {{cwd: string}} input agent 的会话目录
  */
-function makeCtx({ cwd }) {
+function makeCtx({ cwd, execute, agentPresets }) {
   const tools = new Map()
   return {
     tools,
     ctx: {
       tools: {
+        execute,
         register(definition) {
           tools.set(definition.name, definition)
           return () => {}
@@ -61,6 +62,7 @@ function makeCtx({ cwd }) {
       },
       on() { return () => {} },
       get(name) {
+        if (name === 'agentPresets') return agentPresets
         if (name === 'workingDirectory') {
           return {
             // 会话自己的目录：工具必须用它，而不是 defaultDirectory。
@@ -171,4 +173,52 @@ test('maw_board：默认目录里的别的工程不会串进来', async () => {
   const text = await runTool(tools, 'maw_board', {}, { id: 's1' })
   assert.doesNotMatch(text, /maw-elsewhere/u, `不该读到默认目录：${text}`)
   assert.match(text, /maw-project/u, text)
+})
+
+test('maw_delegate passes the resolved per-task model to native subagent dispatch', async t => {
+  scenario()
+  process.env.FAKE_MAW_ROUTING = '1'
+  t.after(() => { delete process.env.FAKE_MAW_ROUTING })
+  const agent = { id: 's1', session: { header: { agentPreset: 'maw' } } }
+  const calls = []
+  const { ctx, tools } = makeCtx({
+    cwd: PROJECT,
+    agentPresets: {},
+    execute: async batch => {
+      calls.push(batch)
+      return { results: [{ result: { isError: false, value: { kind: 'activation', name: 'worker' } } }] }
+    },
+  })
+  apply(ctx, {
+    autoInstall: false,
+    mawBinary: FAKE_MAW,
+    modelGroups: {
+      basic: [{ provider: 'provider-a', model: 'small' }],
+      advanced: [{ provider: 'provider-b', model: 'large', reasoning_effort: 'high' }],
+    },
+  })
+  const exec = { agent, signal: new AbortController().signal, toolSet: {} }
+  for (const id of ['Routing-Basic', 'Routing-Advanced', 'Routing-Override', 'T-1']) {
+    const result = await tools.get('maw_delegate').execute({ id }, exec)
+    assert.match(result, /worker/u)
+  }
+  const routeArgs = calls.map(batch => {
+    assert.equal(batch.agent, agent)
+    assert.equal(batch.toolSet, exec.toolSet)
+    assert.equal(batch.calls[0].name, 'subagent')
+    const { cwd, prompt, description, ...route } = JSON.parse(batch.calls[0].arguments)
+    assert.equal(cwd, PROJECT)
+    assert.match(prompt, /maw next --claim --task/u)
+    return route
+  })
+  assert.deepEqual(routeArgs, [
+    { provider: 'provider-a', model: 'small' },
+    { provider: 'provider-b', model: 'large', reasoning_effort: 'high' },
+    { provider: 'provider-c', model: 'specific' },
+    {},
+  ])
+  const delegate = tools.get('maw_delegate')
+  assert.match(await delegate.execute({ id: 'Routing-Unknown' }, exec), /unconfigured/u)
+  assert.match(await delegate.execute({ id: 'Routing-Basic', project: 'elsewhere' }, exec), /当前工程/u)
+  assert.equal(calls.length, 4)
 })

@@ -7,12 +7,13 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, mkdtempSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { normalizePlan, renderBlueprint, blueprintPath, tomlString, tomlArray } from '../lib/blueprint.js'
+import { normalizeTask } from '../lib/model.js'
 
 /** 一份最小合法请求。 */
 function sample() {
@@ -114,20 +115,53 @@ test('同样输入渲染出同样字节', () => {
   assert.equal(renderBlueprint(plan), renderBlueprint(plan))
 })
 
+test('任务能力等级和指定模型随 maw goal 持久化，读取时还原原始目标', () => {
+  const request = sample()
+  const model = { provider: 'provider', model: 'large', reasoning_effort: 'high' }
+  Object.assign(request.tasks[0], { capabilityTier: 'advanced', model })
+  const result = normalizePlan(request)
+  assert.equal(result.ok, true)
+  const toml = renderBlueprint(result.plan)
+  const encodedGoal = JSON.parse(toml.match(/^goal = (.*做甲")$/mu)[1])
+  const task = normalizeTask({ extra: { goal: encodedGoal } })
+  assert.equal(task.goal, '做甲')
+  assert.equal(task.capabilityTier, 'advanced')
+  assert.deepEqual(task.model, model)
+  assert.equal(normalizePlan({ ...request, tasks: [{ ...request.tasks[0], model: { model: 'large' } }] }).ok, false)
+})
+
 test('落盘路径带时间戳且不覆盖既有蓝图', () => {
   const path = blueprintPath('/tmp/proj/', new Date('2026-11-25T14:40:05'))
   assert.equal(path, '/tmp/proj/.multiagent/blueprint.maw-20261125-144005.toml')
 })
 
-test('渲染结果能被 maw plan check 接受', { skip: !hasMaw() }, () => {
-  const plan = normalizePlan(sample()).plan
+test('真实 maw 压入后保留能力等级和模型', { skip: !hasMaw() }, t => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-maw-bp-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const home = join(dir, 'home')
+  mkdirSync(home)
+  const options = { cwd: dir, env: { ...process.env, MAW_HOME: home, HOME: home, MAW_AGENT: '' }, encoding: 'utf8' }
+  const maw = (...args) => JSON.parse(execFileSync('maw', [...args, '--json'], options))
+  execFileSync('git', ['init', '-b', 'dev'], options)
+  execFileSync('git', ['-c', 'user.name=MAW Test', '-c', 'user.email=maw@example.invalid',
+    'commit', '--allow-empty', '-m', 'Initialize test project'], options)
+  assert.equal(maw('init').ok, true)
+
+  const request = sample()
+  request.tasks[0].capabilityTier = 'advanced'
+  request.tasks[1].model = { provider: 'provider', model: 'small' }
+  const plan = normalizePlan(request).plan
   const file = join(dir, 'blueprint.toml')
   writeFileSync(file, renderBlueprint(plan), 'utf8')
-  const out = execFileSync('maw', ['plan', 'check', file, '--json'], { encoding: 'utf8' })
-  const parsed = JSON.parse(out)
-  assert.equal(parsed.ok, true, `maw 拒绝了渲染结果：${out}`)
-  assert.equal(parsed.task_count, 2)
+  assert.equal(maw('plan', 'check', file).task_count, 2)
+  assert.equal(maw('plan', 'apply', file, '--yes').ok, true)
+  const tasks = maw('task', 'list').tasks.map(normalizeTask)
+  const first = tasks.find(task => task.id === 'MAW-1001')
+  const second = tasks.find(task => task.id === 'MAW-1002')
+  assert.equal(first.capabilityTier, 'advanced')
+  assert.equal(first.goal, '做甲')
+  assert.deepEqual(second.model, { provider: 'provider', model: 'small' })
+  assert.equal(maw('next', '--claim', '--task', 'MAW-1001').ok, true)
 })
 
 /** maw 是否可用。 */

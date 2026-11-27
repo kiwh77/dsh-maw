@@ -1,10 +1,7 @@
 /**
  * dsh-maw Host 半边。
  *
- * 三件事：
- *  1) 注册三个只读工具：maw_board / maw_task / maw_deps。
- *  2) 注册四条只读 HTTP 路由，供浏览器端看板与拓扑取数。
- *  3) 全程不执行任何 maw 写命令。
+ * 提供看板与任务查询、增量压入，以及 MAW 模式下的子智能体派发。
  *
  * 只 import Node 内置模块与本地文件：第三方插件无法保证 `@deepseek-ai/*`
  * 能从自己的目录解析（它们嵌在 dsh 安装目录里），所以配置校验也自己写。
@@ -15,8 +12,9 @@ import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { execMaw, execMawWrite, execMawPreview, clearCache } from './lib/maw-exec.js'
-import { loadBoard, loadProjects, filterTasks, taskDetail, dependencyView } from './lib/model.js'
-import { normalizePlan, renderBlueprint, blueprintPath } from './lib/blueprint.js'
+import { loadBoard, loadProjects, filterTasks, taskDetail, dependencyView, resolveIterationFilter } from './lib/model.js'
+import { normalizePlan, renderBlueprint, blueprintPath, TASK_ID_PATTERN } from './lib/blueprint.js'
+import { normalizeModelGroups, resolveTaskModel } from './lib/model-routing.js'
 import { detectMaw, installMaw, installMawWithGo } from './lib/maw-install.js'
 import { launchPrompt, launchState, runningInProject, normalizePath } from './lib/launch.js'
 import { runPreview, PREVIEW_ACTIONS } from './lib/preview.js'
@@ -27,6 +25,12 @@ export const inject = ['tools', 'webServer']
 
 /** 路由前缀。 */
 const API_PREFIX = '/dsh-maw/api'
+
+const modelParameters = {
+  provider: { type: 'string', required: true, description: 'DSH provider id.' },
+  model: { type: 'string', required: true, description: 'Exact model id within the provider.' },
+  reasoning_effort: { type: 'string', description: 'Optional model-specific reasoning effort id.' },
+}
 
 /** 配置默认值。 */
 const DEFAULTS = {
@@ -42,6 +46,7 @@ const DEFAULTS = {
   mawVersion: 'latest',
   installDir: '',
   allowGoFallback: false,
+  modelGroups: {},
 }
 
 /**
@@ -64,6 +69,7 @@ export function normalizeConfig(raw) {
     mawVersion: typeof input.mawVersion === 'string' && input.mawVersion !== '' ? input.mawVersion : DEFAULTS.mawVersion,
     installDir: typeof input.installDir === 'string' ? input.installDir : '',
     allowGoFallback: input.allowGoFallback === true,
+    modelGroups: normalizeModelGroups(input.modelGroups),
   }
 }
 
@@ -242,6 +248,9 @@ function renderTaskText(detail) {
   if (detail.upstream.length > 0) lines.push(`上游：${detail.upstream.join(', ')}`)
   if (detail.downstream.length > 0) lines.push(`下游：${detail.downstream.join(', ')}`)
   if (detail.blockedReason !== '') lines.push(`阻塞原因：${detail.blockedReason}`)
+  if (detail.capabilityTier !== undefined) lines.push(`能力等级：${detail.capabilityTier}`)
+  if (detail.model !== undefined) lines.push(`指定模型：${JSON.stringify(detail.model)}`)
+  if (detail.modelRoutingError !== undefined) lines.push(`模型配置错误：${detail.modelRoutingError}`)
   if (detail.goal !== '') lines.push(`目标：${detail.goal}`)
   if (detail.writeScope.length > 0) lines.push(`写范围：\n${detail.writeScope.map(item => `  - ${item}`).join('\n')}`)
   if (detail.readScope.length > 0) lines.push(`读范围：\n${detail.readScope.map(item => `  - ${item}`).join('\n')}`)
@@ -381,8 +390,8 @@ export function apply(ctx, rawConfig) {
    * @param {AbortSignal} [signal]
    * @param {object} [agent] 发起调用的 agent，用来取它的会话目录
    */
-  const readBoardOf = (projectId, signal, agent) =>
-    loadBoard(settings, cwdFor(ctx, settings, agent), signal, { projectId })
+  const readBoardOf = (projectId, signal, agent, config = settings) =>
+    loadBoard(config, cwdFor(ctx, settings, agent), signal, { projectId })
 
   /**
    * 解析某个 agent 所属的工程 id。
@@ -874,6 +883,81 @@ export function apply(ctx, rawConfig) {
 
   // 压入工具：只在 MAW 模式下可见（其它模式连工具都不出现，避免误写队列）。
   ctx.tools.register({
+    name: 'maw_model_groups',
+    description: 'List configured capability tiers and their DSH model routes. Each tier uses its first route by default.',
+    parameters: {},
+    output: {
+      schema: { type: 'string' },
+      render: (_args, value) => [{ type: 'text', text: String(value) }],
+    },
+    execute() {
+      return JSON.stringify(settings.modelGroups, null, 2)
+    },
+  }, { when: context => isMawMode(context.agent) })
+
+  ctx.tools.register({
+    name: 'maw_delegate',
+    description: 'Start a DSH subagent for a ready task in the current maw project. Reads the saved task card and applies its exact model or capability tier to the native subagent call. Use for queued MAW tasks.',
+    parameters: {
+      id: { type: 'string', required: true, description: 'Ready MAW task id.' },
+      project: { type: 'string', description: 'Current MAW project id. Omit to infer it from the session directory.' },
+    },
+    output: {
+      schema: { type: 'string' },
+      render: (_args, value) => [{ type: 'text', text: String(value) }],
+    },
+    isConcurrencySafe: () => true,
+    async execute(args, exec) {
+      const id = args?.id
+      if (typeof id !== 'string' || !TASK_ID_PATTERN.test(id)) return '任务编号无效。'
+      const projectId = await projectIdForAgent(exec.agent, exec.signal)
+      if (projectId === '') return NO_PROJECT_TEXT
+      if (args.project && args.project !== projectId) return '只能派发当前工程的任务。'
+
+      const board = await readBoardOf(projectId, exec.signal, exec.agent, { ...settings, cacheMs: 0 })
+      const task = taskDetail(board, id)
+      if (task === null) return `当前工程没有找到任务 ${id}。`
+      if (!task.isFrontier) return `任务 ${id} 当前不在可开工队列。`
+      const selection = resolveTaskModel(task, settings.modelGroups)
+      if (selection.error !== undefined) return `任务 ${id} 无法派发：${selection.error}`
+      if (typeof ctx.tools.execute !== 'function') return '当前 DSH Host 无法执行原生 subagent 派发。'
+
+      const prompt = [
+        '你是本次 MAW 委派的 worker。只执行下方这一题。',
+        `先从当前工程目录执行 maw next --claim --task ${id} --json。领取成功后按回执进入工作树，遵守任务范围并跑验收命令，按 maw worker 流程提交和汇报。领取失败时汇报原因并结束。`,
+        '',
+        renderTaskText(task),
+      ].join('\n')
+      const batch = await ctx.tools.execute({
+        agent: exec.agent,
+        signal: exec.signal,
+        toolSet: exec.toolSet,
+        calls: [{
+          type: 'tool_call',
+          id: randomUUID(),
+          name: 'subagent',
+          arguments: JSON.stringify({
+            cwd: board.projectPath,
+            description: `MAW ${id}`,
+            prompt,
+            ...selection.route,
+          }),
+        }],
+      })
+      const result = batch.results[0]?.result
+      if (result?.isError === false && result.value?.kind === 'activation') {
+        const { provider, model, reasoning_effort } = selection.route
+        const modelLabel = provider === undefined
+          ? 'DSH 默认模型'
+          : [`${provider}/${model}`, reasoning_effort].filter(Boolean).join(' · ')
+        return `任务 ${id} 已派发给 ${result.value.name}（${modelLabel}）。`
+      }
+      const message = result?.content?.filter(block => block.type === 'text').map(block => block.text).join('\n')
+      return `任务 ${id} 派发失败：${message || 'DSH 未返回子智能体启动结果。'}`
+    },
+  }, { when: context => isMawMode(context.agent) })
+
+  ctx.tools.register({
     name: 'maw_plan_push',
     description:
       'Push a task list into the local maw queue as a blueprint. Validates the plan first, writes it to '
@@ -901,6 +985,8 @@ export function apply(ctx, rawConfig) {
             id: { type: 'string', required: true, description: 'Stable task id, such as MAW-1001.' },
             title: { type: 'string', required: true, description: 'One-line deliverable.' },
             goal: { type: 'string', description: 'Why this task exists and what it settles.' },
+            capabilityTier: { type: 'string', description: 'Optional configured capability tier from maw_model_groups.' },
+            model: { type: 'object', properties: modelParameters, description: 'Optional exact DSH route. Overrides the capability tier default.' },
             lane: { type: 'string', description: 'Lane name used for board grouping.' },
             deps: { type: 'array', items: { type: 'string' }, description: 'Task ids that must finish first.' },
             writeScope: { type: 'array', items: { type: 'string' }, description: 'Files or directories this task may write.' },
@@ -917,6 +1003,7 @@ export function apply(ctx, rawConfig) {
         type: 'boolean',
         description: 'Apply the plan after it passes validation; defaults to false (validate only).',
       },
+      project: { type: 'string', description: 'MAW project id; omit to use the calling session\'s own project.' },
     },
     output: {
       schema: { type: 'string' },
@@ -925,6 +1012,10 @@ export function apply(ctx, rawConfig) {
     async execute(args, exec) {
       const plan = normalizePlan(args)
       if (!plan.ok) return `任务清单有误，未压入：\n${plan.errors.map(item => `- ${item}`).join('\n')}`
+      for (const task of plan.plan.tasks) {
+        const { error } = resolveTaskModel(task, settings.modelGroups)
+        if (error !== undefined) return `任务清单有误，未压入：${task.id} · ${error}`
+      }
 
       // 压入也必须落在当前会话自己的工程里：蓝图写错工程等于把题塞给别人。
       const { projectId } = await toolProject(args, exec)
@@ -1163,6 +1254,7 @@ export function apply(ctx, rawConfig) {
           risks: [],
           problems: [],
           iterations: [],
+          iterationCounts: {},
           sources: {},
           errors: [],
           launch: { canLaunch: false, reason: 'unregistered', frontier: 0, running: 0, projectId: '', projectPath: '', registered: false },
@@ -1172,12 +1264,20 @@ export function apply(ctx, rawConfig) {
       }
       const board = await readBoardOf(effectiveProject, undefined)
       const defaultProjectId = sessionProject?.id ?? ''
+      // 迭代筛选：空 / `__all__` = 全部，`__none__` = 未归迭代，其余按 id 精确匹配。
+      const iterationFilter = resolveIterationFilter(url.searchParams.get('iteration') ?? '')
+      const noneIteration = iterationFilter.kind === 'none'
+      const iteration = iterationFilter.kind === 'one' ? iterationFilter.id : ''
       const filtered = filterTasks(board.tasks, {
         project: effectiveProject !== '' ? effectiveProject : undefined,
         lane: url.searchParams.get('lane') ?? undefined,
         status: url.searchParams.get('status') ?? undefined,
         agent: url.searchParams.get('agent') ?? undefined,
         includeDone,
+      }).filter(task => {
+        if (noneIteration) return task.iterationId === ''
+        if (iteration === '') return true
+        return task.iterationId === iteration
       })
       sendJson(response, 200, {
         ok: true,

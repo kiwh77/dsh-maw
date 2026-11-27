@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
     // ── 文案 ─────────────────────────────────────────────
     const TEXT = {
       zh: {
-        tab: '看板',
+        tab: 'MAW看板',
         switchTo: '切换到',
         title: 'Multi-Agent Workspace',
         progress: '进度',
@@ -23,8 +23,8 @@ window.__ModuleLoader__.load({
         stale: '数据源降级',
         retry: '重试',
         board: '看板',
-        graph: '拓扑',
-        filterLane: '泳道',
+        graph: '依赖',
+        filterLane: '标签',
         filterStatus: '状态',
         filterAgent: 'Agent',
         all: '全部',
@@ -42,7 +42,7 @@ window.__ModuleLoader__.load({
         acceptance: '验收',
         verify: '验证命令',
         owner: '负责人',
-        lane: '泳道',
+        lane: '标签',
         priority: '优先级',
         mergeOrder: '合入序',
         attempts: '尝试',
@@ -50,6 +50,8 @@ window.__ModuleLoader__.load({
         worktree: '工作树',
         blockedReason: '阻塞原因',
         goal: '目标',
+        capabilityTier: '能力等级',
+        model: '指定模型',
         none: '(无)',
         unassigned: '(未分配)',
         cycles: '循环依赖',
@@ -93,11 +95,54 @@ window.__ModuleLoader__.load({
         actionRunning: '执行中…',
         actionEmpty: '没有发现问题',
         close: '关闭',
-        notMawProject: '当前工作区不是 maw 工程，没有看板可展示。',
-        notMawProjectHint: '把该目录登记进 maw（maw project add）后，这里会显示它的队列。',
+        noTasks: '暂无任务。',
+        iteration: '迭代',
+        iterationAll: '全部迭代',
+        iterationNone: '未归迭代',
+        iterationHint: '只展示选中迭代的任务',
+        iterationEmpty: '这个工程还没有迭代。',
+        iterationTasks: '题',
+        detailDrawer: '任务详情',
+        laneHint: '标签（maw 的 lane）：压任务时写的一个自由标注，通常表示模块或分工面。maw 用它做并行分工边界 —— 同一标签的题由同一个 Agent 串行做，避免同时改到同一批文件',
+        statusHint: '状态是单个任务的生命周期',
+        iterationHintTitle: '迭代是按批次交付的时间维度',
+        problemsPanel: '问题',
+        problemsPanelTitle: '问题面板',
+        noProblems: '没有发现问题。',
+        risksSection: '风险',
+        problemsSection: '问题',
+        problemCount: '条',
+        recordedStatus: 'maw 记录状态',
+        derivedStatusHint: '按任务完成度推导',
+        iterationProgressLabel: '完成',
+        secApproach: '执行思路',
+        secNotDoing: '不做',
+        secFollowups: '后续建议',
+        secBlock: '阻塞与终止',
+        secScopeExpand: '范围扩张',
+        blockHistory: '阻塞历史',
+        cancelReason: '取消原因',
+        supersededBy: '被替代为',
+        scopeExpandedAt: '扩张时间',
+        prevStatus: '前置状态',
+        revision: '修订',
+        heartbeat: '心跳',
+        deliveryStrategy: '执行方式',
+        deliveryId: '执行批次',
+        runId: '运行',
+        instanceId: '实例',
+        statusChangedNote: '状态由任务推导，maw 记录值仅在没有任务或已关闭时生效',
+        emptyIteration: '这个迭代下没有任务。',
+        goDeps: '依赖视图',
+        goBoard: '看板视图',
+        depsFocus: '聚焦',
+        depsClearFocus: '取消聚焦',
+        depsEmpty: '没有可展示的依赖。',
+        depsHint: '点节点看详情，双击邻居可换焦点',
+        drawerHint: '选择左侧看板卡片或依赖节点',
       },
       en: {
-        tab: 'Board',
+        tab: 'MAW board',
         switchTo: 'Switch to',
         title: 'Multi-Agent Workspace',
         progress: 'progress',
@@ -110,7 +155,7 @@ window.__ModuleLoader__.load({
         stale: 'data source degraded',
         retry: 'Retry',
         board: 'Board',
-        graph: 'Topology',
+        graph: 'Deps',
         filterLane: 'Lane',
         filterStatus: 'Status',
         filterAgent: 'Agent',
@@ -137,6 +182,8 @@ window.__ModuleLoader__.load({
         worktree: 'Worktree',
         blockedReason: 'Blocked reason',
         goal: 'Goal',
+        capabilityTier: 'Capability tier',
+        model: 'Requested model',
         none: '(none)',
         unassigned: '(unassigned)',
         cycles: 'Cycles',
@@ -180,12 +227,55 @@ window.__ModuleLoader__.load({
         actionRunning: 'Running…',
         actionEmpty: 'Nothing found',
         close: 'Close',
-        notMawProject: 'This workspace is not a maw project, so there is no board to show.',
-        notMawProjectHint: 'Register the directory with maw (maw project add) to see its queue here.',
+        noTasks: 'No tasks yet.',
+        iteration: 'Iteration',
+        iterationAll: 'All iterations',
+        iterationNone: 'No iteration',
+        iterationHint: 'Only tasks of the selected iteration are shown',
+        iterationEmpty: 'This project has no iterations yet.',
+        iterationTasks: 'tasks',
+        detailDrawer: 'Task detail',
+        laneHint: 'Tag (maw lane): a free-form label written when the task is pushed, usually a module or work surface. maw uses it as the parallel dispatch boundary — tasks sharing a tag are worked serially by one agent to avoid write conflicts',
+        statusHint: 'Status is the lifecycle of a single task',
+        iterationHintTitle: 'An iteration is the delivery batch dimension',
+        problemsPanel: 'Problems',
+        problemsPanelTitle: 'Problem panel',
+        noProblems: 'Nothing found.',
+        risksSection: 'Risks',
+        problemsSection: 'Problems',
+        problemCount: 'items',
+        recordedStatus: 'Recorded status',
+        derivedStatusHint: 'Derived from task completion',
+        iterationProgressLabel: 'done',
+        secApproach: 'How it will be done',
+        secNotDoing: 'Not doing',
+        secFollowups: 'Suggested follow-ups',
+        secBlock: 'Blocking and termination',
+        secScopeExpand: 'Scope expansion',
+        blockHistory: 'Block history',
+        cancelReason: 'Cancel reason',
+        supersededBy: 'Superseded by',
+        scopeExpandedAt: 'Expanded at',
+        prevStatus: 'Previous status',
+        revision: 'Revision',
+        heartbeat: 'Heartbeat',
+        deliveryStrategy: 'Delivery strategy',
+        deliveryId: 'Delivery',
+        runId: 'Run',
+        instanceId: 'Instance',
+        statusChangedNote: 'Derived from tasks; the recorded value applies only when there are no tasks or the iteration is closed',
+        emptyIteration: 'No task in this iteration.',
+        goDeps: 'Dependency view',
+        goBoard: 'Board view',
+        depsFocus: 'Focus',
+        depsClearFocus: 'Clear focus',
+        depsEmpty: 'No dependency to show.',
+        depsHint: 'Click a node for detail',
+        drawerHint: 'Pick a card or a dependency node',
       },
     }
 
-    /** 状态的显示名：看板泳道名与人读的状态。 */
+    /** 状态的显示名：看板列名与人读的状态。 */
     const STATUS_LABEL = {
       zh: {
         backlog: '待办',
@@ -207,11 +297,73 @@ window.__ModuleLoader__.load({
       },
     }
 
-    /** 泳道顺序：与 maw board 一致，先看可开工与在跑，阻塞单独一列。 */
+    /**
+     * 迭代状态的显示名。
+     *
+     * 迭代状态与任务状态是两套枚举（running / planning / …），共用一张表会
+     * 把 running 混成任务的「进行中」口径，所以单独一张。
+     */
+    const ITERATION_LABEL = {
+      zh: {
+        running: '进行中',
+        planning: '规划中',
+        active: '进行中',
+        backlog: '待排',
+        paused: '暂停',
+        done: '已完成',
+        completed: '已完成',
+        archived: '已归档',
+        cancelled: '已取消',
+        empty: '无任务',
+      },
+      en: {
+        running: 'Running',
+        planning: 'Planning',
+        active: 'Active',
+        backlog: 'Backlog',
+        paused: 'Paused',
+        done: 'Done',
+        completed: 'Done',
+        archived: 'Archived',
+        cancelled: 'Cancelled',
+        empty: 'No tasks',
+      },
+    }
+
+    /** 问题类型：maw 给的 kind 是英文枚举，界面显示中文。 */
+    const PROBLEM_KIND = {
+      zh: {
+        'dep-wait': '等待依赖',
+        stalled: '停滞',
+        blocked: '阻塞',
+        'missed-heartbeat': '心跳丢失',
+        conflict: '冲突',
+        dirty: '工作区不干净',
+      },
+      en: {
+        'dep-wait': 'Waiting on dependency',
+        stalled: 'Stalled',
+        blocked: 'Blocked',
+        'missed-heartbeat': 'Missed heartbeat',
+        conflict: 'Conflict',
+        dirty: 'Dirty worktree',
+      },
+    }
+
+    /** 严重度：低 / 中 / 高。 */
+    const SEVERITY_LABEL = {
+      zh: { low: '低', medium: '中', high: '高' },
+      en: { low: 'Low', medium: 'Medium', high: 'High' },
+    }
+
+    /** 状态列顺序：与 maw board 一致，先看可开工与在跑，阻塞单独一列。 */
     const STATUS_ORDER = ['ready', 'in_progress', 'merging', 'backlog', 'blocked', 'done', 'cancelled']
 
     let dict = TEXT.zh
     let statusLabel = STATUS_LABEL.zh
+    let iterationLabel = ITERATION_LABEL.zh
+    let problemKindLabel = PROBLEM_KIND.zh
+    let severityLabel = SEVERITY_LABEL.zh
 
     /**
      * 跳到某个会话。
@@ -225,23 +377,18 @@ window.__ModuleLoader__.load({
 
     // ── 样式（对齐 maw board 的看板与拓扑视觉） ───────────
     const CSS = `
-.maw-view { display: flex; flex-direction: column; height: 100%; min-height: 0;
+.maw-view { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
   color: var(--dsw-alias-label-primary); font-size: 12px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", var(--dsw-font-sans, sans-serif); }
 
 .maw-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 8px 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); flex: none; }
 .maw-bar__title { font-weight: 600; font-size: 13px; }
-.maw-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-2); margin-left: 6px; }
-.maw-tab { border: 0; border-radius: 6px; height: 24px; padding: 0 10px; font: inherit;
-  font-size: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
-.maw-tab[aria-selected="true"] { background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-brand-primary); box-shadow: 0 1px 2px var(--dsw-alias-border-l1); font-weight: 600; }
-.maw-tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 .maw-bar__spacer { flex: 1; }
 .maw-muted { color: var(--dsw-alias-label-secondary); font-size: 11px; white-space: nowrap; }
 .maw-track { width: 120px; height: 4px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); overflow: hidden; }
+.maw-track--rail { width: 100%; height: 3px; margin: 1px 0 2px; }
+.maw-iteration__open { margin-left: 6px; color: var(--dsw-alias-label-secondary); }
 .maw-track__fill { height: 100%; background: var(--dsw-alias-brand-primary); border-radius: 999px; }
 
 .maw-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -254,19 +401,107 @@ window.__ModuleLoader__.load({
 .maw-check { display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
   color: var(--dsw-alias-label-secondary); cursor: pointer; }
 
+/* ── 三块布局：迭代栏 | 内容（看板/依赖） | 详情抽屉 ── */
+.maw-shell { display: flex; flex: 1; min-height: 0; }
+
+/* 第一块：迭代栏 */
+.maw-iterations { width: 208px; flex: none; display: flex; flex-direction: column;
+  min-height: 0; border-right: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1); }
+.maw-iterations__head { display: flex; align-items: center; gap: 6px; flex: none;
+  padding: 10px 12px 6px; font-size: 10px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--dsw-alias-label-secondary); }
+.maw-iterations__list { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 10px; }
+.maw-iteration { display: flex; flex-direction: column; gap: 3px; width: 100%;
+  text-align: left; font: inherit; padding: 7px 9px; border-radius: 6px; cursor: pointer;
+  color: inherit; background: transparent; border: 1px solid transparent; margin-bottom: 2px; }
+.maw-iteration:hover { background: var(--dsw-alias-bg-layer-2); }
+.maw-iteration:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.maw-iteration.is-active { background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-brand-primary); }
+.maw-iteration.is-active .maw-iteration__name { color: var(--dsw-alias-brand-primary); }
+.maw-iteration__top { display: flex; align-items: center; gap: 6px; }
+.maw-iteration__name { font-size: 12px; font-weight: 500; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.maw-iteration__count { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--dsw-alias-label-secondary); flex: none; }
+.maw-iteration__id { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.maw-iteration__status { font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: 3px; padding: 0 4px;
+  color: var(--dsw-alias-label-secondary); white-space: nowrap; flex: none; }
+
+/* 第二块：内容区（自带头部：看板/依赖切换 + 概要 + 筛选） */
+.maw-content { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.maw-content__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 14px; border-bottom: 1px solid var(--dsw-alias-border-l1); flex: none; }
+.maw-content__title { font-size: 12px; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maw-switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2); flex: none; }
+.maw-switch__btn { border: 0; border-radius: 6px; height: 24px; padding: 0 10px; font: inherit;
+  font-size: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+.maw-switch__btn[aria-selected="true"] { background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-brand-primary); box-shadow: 0 1px 2px var(--dsw-alias-border-l1); font-weight: 600; }
+.maw-switch__btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.maw-content__spacer { flex: 1; }
+.maw-content__body { flex: 1; min-height: 0; position: relative; }
+
+/* 问题面板：从工具条下方浮出，盖在内容区上，不挤占三块布局 */
+.maw-panel { position: absolute; top: 8px; right: 12px; width: 400px; max-width: calc(100% - 24px);
+  max-height: 62vh; display: flex; flex-direction: column; z-index: 30;
+  border-radius: 10px; border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.maw-panel__head { display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 9px 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.maw-panel__title { font-size: 12px; font-weight: 600; }
+.maw-panel__count { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--dsw-alias-label-secondary); }
+.maw-panel__body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
+.maw-panel__close { margin-left: auto; border: 0; background: transparent; cursor: pointer;
+  padding: 2px 6px; border-radius: 4px; color: var(--dsw-alias-label-secondary);
+  font-size: 14px; line-height: 1; }
+.maw-panel__close:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.maw-panel__backdrop { position: absolute; inset: 0; z-index: 29; background: rgba(0, 0, 0, .12); }
+/* 工具条上的「问题」按钮：有内容时带一个计数徽章 */
+.maw-problem-btn { display: inline-flex; align-items: center; gap: 5px; }
+.maw-problem-btn__badge { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-radius: 999px; padding: 0 5px; border: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary); }
+.maw-problem-btn[data-active="true"] { background: var(--dsw-alias-bg-layer-2);
+  border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); }
+
+/* 第三块：详情抽屉 */
+.maw-drawer { width: 320px; flex: none; display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); }
+.maw-drawer__head { display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.maw-drawer__title { font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--dsw-alias-label-secondary); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.maw-drawer__close { border: 0; background: transparent; cursor: pointer; padding: 2px 6px;
+  border-radius: 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 1; }
+.maw-drawer__close:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+.maw-drawer__close:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.maw-drawer__body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
+
 .maw-body { display: flex; flex: 1; min-height: 0; }
 .maw-main { flex: 1; min-width: 0; overflow: auto; padding: 14px 16px; }
-.maw-side { width: 300px; flex: none; overflow: auto; padding: 14px 16px;
-  border-left: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); }
+.maw-main--canvas { padding: 0; position: relative; overflow: hidden; }
 
 /* 看板列 */
-.maw-lane { margin-bottom: 18px; }
-.maw-lane__head { display: flex; align-items: baseline; gap: 8px; font-weight: 600;
+.maw-column { margin-bottom: 18px; }
+.maw-column__head { display: flex; align-items: baseline; gap: 8px; font-weight: 600;
   font-size: 12px; padding: 6px 2px 8px; border-top: 1px solid var(--dsw-alias-border-l1); }
-.maw-lane__count { background: none; font-size: 11px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
-.maw-lane__dot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
-.maw-lane:first-child .maw-lane__head { border-top-color: var(--dsw-alias-brand-primary); }
+.maw-column__count { background: none; font-size: 11px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
+.maw-column__dot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+.maw-column:first-child .maw-column__head { border-top-color: var(--dsw-alias-brand-primary); }
 .maw-card__lane { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maw-card__iteration { max-width: 120px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--dsw-alias-border-l1); border-radius: 3px; padding: 0 3px; }
 .maw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 
 /* 任务卡：id + 状态徽章 / 标题 / 负责人 + 优先级 */
@@ -286,21 +521,54 @@ window.__ModuleLoader__.load({
 .maw-card__title { margin: 0; font-size: 12px; font-weight: 500; line-height: 1.4;
   overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden; }
-.maw-card__meta { display: flex; align-items: center; gap: 10px; margin-top: auto;
-  font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.maw-card__meta { display: flex; align-items: center; gap: 8px; row-gap: 3px; flex-wrap: wrap;
+  margin-top: auto; font-size: 10px; color: var(--dsw-alias-label-secondary); }
+/* 窄卡片里这些标签不能被压成竖排的一个字：不收缩 + 不换行，装不下就整项折行。 */
+.maw-card__meta > span { flex: none; white-space: nowrap; }
 .maw-card__owner { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 状态色：与 maw board 一致（就绪/合入强调色，阻塞红，进行中黄） */
-[data-status="ready"], [data-status="merging"] { border-left-color: var(--dsw-alias-brand-primary) !important; }
-[data-status="in_progress"] { border-left-color: var(--dsw-alias-state-warn-primary) !important; }
-[data-status="blocked"] { border-left-color: var(--dsw-alias-state-error-primary) !important; }
-[data-status="done"], [data-status="cancelled"] { opacity: .72; }
-[data-status="done"] .maw-card__status { color: var(--dsw-alias-state-success-primary); }
+/* 状态色：一整块低饱和底色 + 左条。只靠左条时扫一屏看不出状态分布，
+   所以给卡片/节点铺一层 6%–10% 的状态色；比例压住，避免变成刺眼的高亮块。 */
+.maw-card[data-status="ready"], .maw-topo__node[data-status="ready"] {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 8%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-state-success-primary);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 22%, var(--dsw-alias-border-l1));
+}
+.maw-card[data-status="in_progress"], .maw-topo__node[data-status="in_progress"] {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 9%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-state-warn-primary);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 24%, var(--dsw-alias-border-l1));
+}
+.maw-card[data-status="merging"], .maw-topo__node[data-status="merging"] {
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 9%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-brand-primary);
+  border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 24%, var(--dsw-alias-border-l1));
+}
+.maw-card[data-status="blocked"], .maw-topo__node[data-status="blocked"] {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 9%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-state-error-primary);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 24%, var(--dsw-alias-border-l1));
+}
+.maw-card[data-status="backlog"], .maw-topo__node[data-status="backlog"] {
+  background: color-mix(in srgb, var(--dsw-alias-state-idle-primary) 5%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-state-idle-primary);
+}
+.maw-card[data-status="done"], .maw-topo__node[data-status="done"],
+.maw-card[data-status="cancelled"], .maw-topo__node[data-status="cancelled"] {
+  background: color-mix(in srgb, var(--dsw-alias-label-secondary) 4%, var(--dsw-alias-bg-layer-2));
+  border-left-color: var(--dsw-alias-border-l2);
+  opacity: .82;
+}
+[data-status="done"] .maw-card__status, [data-status="done"] .maw-topo__status { color: var(--dsw-alias-state-success-primary); }
+/* 选中/悬停时底色再提一档，保证「选中」仍然比状态色更显眼。 */
+.maw-card.is-selected, .maw-topo__node.active {
+  border-color: var(--dsw-alias-brand-primary);
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, var(--dsw-alias-bg-layer-2));
+}
 
 /* 拓扑 */
-.maw-topo { position: relative; width: 100%; overflow: hidden;
-  background: transparent;
-  height: clamp(360px, calc(100vh - 210px), 1200px); }
+.maw-topo { position: relative; width: 100%; height: 100%; overflow: hidden;
+  background: transparent; }
 .maw-topo__canvas { position: absolute; inset: 0; overflow: hidden;
   cursor: grab; user-select: none; }
 .maw-topo__canvas:active { cursor: grabbing; }
@@ -408,6 +676,20 @@ window.__ModuleLoader__.load({
 .maw-section { margin-bottom: 14px; }
 .maw-section__title { font-size: 10px; font-weight: 600; letter-spacing: .04em;
   text-transform: uppercase; color: var(--dsw-alias-label-secondary); margin-bottom: 6px; }
+.maw-subsection__title { font-size: 10px; color: var(--dsw-alias-label-secondary); margin: 8px 0 4px; }
+/* 详情正文：目标 / 阻塞原因这类长句，保持可读行高 */
+.maw-prose { font-size: 11px; line-height: 1.6; color: var(--dsw-alias-label-primary);
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 依赖 chip：可点，点了切到那个任务 */
+.maw-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.maw-chip { border: 1px solid var(--dsw-alias-border-l1); cursor: pointer; font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
+  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary);
+  padding: 2px 6px; border-radius: 4px; }
+.maw-chip:hover:not([disabled]) { border-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-brand-primary); }
+.maw-chip:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.maw-chip[disabled] { cursor: default; opacity: .8; }
 .maw-item { font-size: 11px; line-height: 1.45; padding: 6px 8px; border-radius: 6px;
   background: var(--dsw-alias-bg-layer-2); margin-bottom: 5px;
   border-left: 2px solid var(--dsw-alias-border-l2); }
@@ -415,6 +697,11 @@ window.__ModuleLoader__.load({
 .maw-item[data-sev="medium"] { border-left-color: var(--dsw-alias-state-warn-primary); }
 .maw-item[data-sev="low"] { border-left-color: var(--dsw-alias-state-idle-primary); }
 .maw-item__head { font-weight: 600; }
+/* 问题面板里的条目本身是按钮：清掉按钮默认外观，只保留条目卡的样子 */
+.maw-item--btn { display: block; width: 100%; text-align: left; font: inherit;
+  color: inherit; cursor: pointer; }
+.maw-item--btn:hover { background: var(--dsw-alias-bg-layer-1); }
+.maw-item--btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
 .maw-item__body { color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .maw-empty { padding: 32px; text-align: center; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .maw-empty__hint { margin-top: 6px; font-size: 11px; opacity: .8; }
@@ -445,6 +732,16 @@ window.__ModuleLoader__.load({
     }
 
     const colorOf = status => STATUS_COLOR[status] ?? STATUS_COLOR.backlog
+
+    /**
+     * 迭代选择值。
+     *
+     * 迭代栏的选中值只有三种形态：全部、某个真实迭代 id、未归迭代。
+     * 空串不能当「全部」用，因为任务上没有迭代时 `iterationId` 本身就是空串。
+     * 这两个哨兵值与 Host 侧的 `__all__` / `__none__` 对齐，可以直接当查询参数发。
+     */
+    const ALL_CHOICE = '__all__'
+    const NO_ITERATION_CHOICE = '__none__'
 
     /** 拉一个 JSON 接口。 */
     async function getJson(path, signal) {
@@ -500,51 +797,120 @@ window.__ModuleLoader__.load({
     }
 
     // ── 任务详情 ──────────────────────────────────────────
-    function TaskDetail({ task }) {
+    /**
+     * 任务详情。
+     *
+     * 详情要能回答「这题到底要做什么、怎么做、做到哪一步、为什么停了」，
+     * 所以除了状态与负责人，还把执行思路（goal）、不做的事、验收条目、
+     * 验证命令、后续建议、依赖、范围、阻塞与终止原因全部摊开。
+     *
+     * @param {object} props
+     * @param {object|null} props.task 任务详情（含 upstream / downstream）
+     * @param {(id: string) => void} [props.onSelect] 点依赖跳到那个任务
+     */
+    function TaskDetail({ task, onSelect, iterationName }) {
       if (task === null || task === undefined) {
         return h('div', { className: 'maw-empty' }, dict.noSelection)
       }
+
       const kv = []
-      const row = (label, value) => kv.push(
-        h('dt', { key: `dt-${label}` }, label),
-        h('dd', { key: `dd-${label}` }, value),
-      )
-      row(dict.lane, task.lane || dict.none)
+      const row = (label, value, title) => {
+        if (value === null || value === undefined || value === '') return
+        kv.push(
+          h('dt', { key: `dt-${label}`, title: title ?? '' }, label),
+          h('dd', { key: `dd-${label}`, title: title ?? '' }, value),
+        )
+      }
+      row(dict.iteration, task.iterationId === ''
+        ? ''
+        : (iterationName === undefined || iterationName === '' ? task.iterationId : `${iterationName}（${task.iterationId}）`))
+      row(dict.lane, task.lane || dict.none, dict.laneHint)
       row(dict.owner, task.owner || dict.unassigned)
-      row(dict.priority, String(task.priority))
+      row(dict.priority, `P${task.priority}`)
       row(dict.mergeOrder, String(task.mergeOrder))
       row(dict.attempts, String(task.attempts))
-      if (task.branch !== '') row(dict.branch, h('span', { className: 'maw-code' }, task.branch))
-      if (task.worktree !== '') row(dict.worktree, h('span', { className: 'maw-code' }, task.worktree))
-      if (task.blockedReason !== '') row(dict.blockedReason, task.blockedReason)
+      row(dict.prevStatus, task.prevStatus === '' ? '' : (statusLabel[task.prevStatus] ?? task.prevStatus))
+      row(dict.revision, String(task.revision))
+      row(dict.deliveryStrategy, task.deliveryStrategy)
+      row(dict.branch, task.branch === '' ? '' : h('span', { className: 'maw-code' }, task.branch))
+      row(dict.worktree, task.worktree === '' ? '' : h('span', { className: 'maw-code' }, task.worktree))
+      row(dict.heartbeat, task.heartbeat === '' ? '' : String(task.heartbeat).replace('T', ' ').replace('Z', ''))
+      row(dict.deliveryId, task.deliveryId === '' ? '' : h('span', { className: 'maw-code' }, task.deliveryId))
+      row(dict.runId, task.runId === '' ? '' : h('span', { className: 'maw-code' }, task.runId))
+      row(dict.instanceId, task.instanceId === '' ? '' : h('span', { className: 'maw-code' }, task.instanceId))
 
       const section = (title, children) => h('div', { className: 'maw-section' },
         h('div', { className: 'maw-section__title' }, title), children)
       const list = items => h('ul', { className: 'maw-list' },
         items.map((item, index) => h('li', { key: index }, item)))
-      const chips = ids => h('div', {}, ids.map(id => h('span', {
-        key: id, className: 'maw-code', style: { marginRight: 4, display: 'inline-block' },
+      const chipList = ids => h('div', { className: 'maw-chips' }, ids.map(id => h('button', {
+        key: id,
+        type: 'button',
+        className: 'maw-code maw-chip',
+        title: onSelect === undefined ? '' : `${dict.detailDrawer} · ${id}`,
+        disabled: onSelect === undefined,
+        onClick: onSelect === undefined ? undefined : () => onSelect(id),
       }, id)))
+
+      const hasBlockInfo = task.blockedReason !== '' || task.blockCategory !== '' ||
+        (task.blockHistory ?? []).length > 0
+      // 只有「前置状态是 blocked」时不必单开一节：那只是历史状态，KV 里已经写了，
+      // 单开一节会渲染出一个只有标题的空章节。
+      const hasStopInfo = task.cancelReason !== '' || task.supersededBy !== ''
 
       return h('div', { className: 'maw-detail' },
         h('div', { className: 'maw-detail__id' },
           h('span', {
             className: 'maw-card__status',
             style: { color: colorOf(task.status), borderColor: colorOf(task.status) },
-          }, task.status),
+          }, statusLabel[task.status] ?? task.status),
           task.id),
         h('div', { className: 'maw-detail__title' }, task.title),
-        h('dl', { className: 'maw-kv' }, kv),
-        task.goal !== '' && section(dict.goal, h('div', { className: 'maw-muted' }, task.goal)),
-        task.upstream.length > 0 && section(dict.upstream, chips(task.upstream)),
-        task.downstream.length > 0 && section(dict.downstream, chips(task.downstream)),
-        task.writeScope.length > 0 && section(dict.scope,
+        kv.length > 0 ? h('dl', { className: 'maw-kv' }, kv) : null,
+        // ── 执行思路：这题打算怎么做 ──
+        section(dict.secApproach, task.goal === ''
+          ? h('div', { className: 'maw-muted' }, dict.none)
+          : h('div', { className: 'maw-prose' }, task.goal)),
+        (task.notDoing ?? []).length > 0 && section(dict.secNotDoing, list(task.notDoing)),
+        (task.acceptance ?? []).length > 0 && section(dict.acceptance, list(task.acceptance)),
+        (task.verify ?? []).length > 0 && section(dict.verify,
+          list(task.verify.map(item => h('span', { className: 'maw-code' }, item)))),
+        (task.suggestedFollowups ?? []).length > 0 && section(dict.secFollowups,
+          list(task.suggestedFollowups.map(item => h('span', { className: 'maw-code' }, item)))),
+        task.capabilityTier && section(dict.capabilityTier,
+          h('span', { className: 'maw-code' }, task.capabilityTier)),
+        task.model && section(dict.model, h('span', { className: 'maw-code' },
+          [`${task.model.provider}/${task.model.model}`, task.model.reasoning_effort].filter(Boolean).join(' · '))),
+        // ── 依赖：点一下跳到那个任务 ──
+        (task.upstream ?? []).length > 0 && section(dict.upstream, chipList(task.upstream)),
+        (task.downstream ?? []).length > 0 && section(dict.downstream, chipList(task.downstream)),
+        (task.writeScope ?? []).length > 0 && section(dict.scope,
           list(task.writeScope.map(item => h('span', { className: 'maw-code' }, item)))),
-        task.readScope.length > 0 && section(dict.readScope,
+        (task.readScope ?? []).length > 0 && section(dict.readScope,
           list(task.readScope.map(item => h('span', { className: 'maw-code' }, item)))),
-        task.acceptance.length > 0 && section(dict.acceptance, list(task.acceptance)),
-        task.verify.length > 0 && section(dict.verify,
-          list(task.verify.map(item => h('span', { className: 'maw-code' }, item)))))
+        // ── 为什么停下来 ──
+        hasBlockInfo && section(dict.secBlock, h(React.Fragment, null,
+          task.blockCategory !== '' && h('div', { className: 'maw-muted' },
+            `${dict.blockCategory}：${task.blockCategory}`),
+          task.blockedReason !== '' && h('div', { className: 'maw-prose' }, task.blockedReason),
+          (task.blockHistory ?? []).length > 0 && h(React.Fragment, null,
+            h('div', { className: 'maw-subsection__title' }, dict.blockHistory),
+            (task.blockHistory ?? []).map((entry, index) => h('div', {
+              className: 'maw-item', key: `bh-${index}`, 'data-sev': 'high',
+            },
+            h('div', { className: 'maw-item__head' }, String(entry.at ?? '').replace('T', ' ').replace('Z', '')),
+            h('div', { className: 'maw-item__body' }, entry.reason)))))),
+        hasStopInfo && section(dict.secBlock, h(React.Fragment, null,
+          task.cancelReason !== '' && h('div', { className: 'maw-muted' },
+            `${dict.cancelReason}：${task.cancelReason}`),
+          task.supersededBy !== '' && h('div', { className: 'maw-muted' },
+            `${dict.supersededBy}：`, h('span', { className: 'maw-code' }, task.supersededBy)))),
+        // ── 执行中扩过范围 ──
+        (task.scopeExpandReason !== '' || task.scopeExpandedAt !== '') && section(dict.secScopeExpand,
+          h(React.Fragment, null,
+            task.scopeExpandedAt !== '' && h('div', { className: 'maw-muted' },
+              `${dict.scopeExpandedAt}：${String(task.scopeExpandedAt).replace('T', ' ').replace('Z', '')}`),
+            task.scopeExpandReason !== '' && h('div', { className: 'maw-prose' }, task.scopeExpandReason))))
     }
 
     /**
@@ -738,11 +1104,11 @@ window.__ModuleLoader__.load({
         }, busyId === action.id ? dict.actionRunning : (dict[action.labelKey] ?? action.id))))
     }
 
-    function BoardPane({ data, filters, setFilters, selected, onSelect }) {
+    function BoardPane({ data, filters, setFilters, selected, onSelect, showIteration }) {
       const tasks = data?.filteredTasks ?? data?.tasks ?? []
 
-      // 泳道 = 任务状态，按流水线顺序排列；空状态不占位。
-      const lanes = useMemo(() => {
+      // 看板按任务状态分列（不是 maw 的 lane），按流水线顺序排列；空状态不占位。
+      const columns = useMemo(() => {
         const groups = new Map()
         for (const task of tasks) {
           const key = task.status ?? 'backlog'
@@ -759,7 +1125,7 @@ window.__ModuleLoader__.load({
         return ordered
       }, [tasks])
 
-      const laneOptions = useMemo(() => {
+      const tagOptions = useMemo(() => {
         const set = new Set()
         for (const task of data?.tasks ?? []) if (task.lane !== '') set.add(task.lane)
         return [...set].sort()
@@ -771,7 +1137,9 @@ window.__ModuleLoader__.load({
         return [...set].sort()
       }, [data])
 
-      const field = (label, key, options) => h('label', { className: 'maw-field' },
+      // options 既可以是字符串，也可以是 { value, label }：状态筛选项必须显示中文，
+      // 但提交给 Host 的仍然是英文枚举。
+      const field = (label, key, options, hint) => h('label', { className: 'maw-field', title: hint ?? '' },
         h('span', {}, label),
         h('select', {
           className: 'maw-select',
@@ -786,36 +1154,40 @@ window.__ModuleLoader__.load({
         type: 'button',
         className: `maw-card${selected === task.id ? ' is-selected' : ''}`,
         'data-status': task.status,
+        'aria-pressed': selected === task.id,
         onClick: () => onSelect(task.id),
       },
       h('div', { className: 'maw-card__head' },
         h('span', { className: 'maw-card__id' }, task.id),
-        h('span', { className: 'maw-card__status' }, task.status)),
+        h('span', { className: 'maw-card__status', title: task.status },
+          statusLabel[task.status] ?? task.status)),
       h('h4', { className: 'maw-card__title' }, task.title),
       h('div', { className: 'maw-card__meta' },
         h('span', { className: 'maw-card__owner' }, task.owner || dict.unassigned),
         h('span', {}, `P${task.priority}`),
-        task.lane !== '' ? h('span', { className: 'maw-card__lane' }, task.lane) : null,
+        task.lane !== '' ? h('span', { className: 'maw-card__lane', title: dict.laneHint }, task.lane) : null,
+        showIteration && task.iterationId !== ''
+          ? h('span', { className: 'maw-card__iteration', title: dict.iterationHintTitle }, task.iterationId)
+          : null,
         task.deps.length > 0 ? h('span', {}, `${dict.deps} ${task.deps.length}`) : null))
 
-      const renderLane = ([status, laneTasks]) => h('div', { className: 'maw-lane', key: status, 'data-lane': status },
-        h('div', { className: 'maw-lane__head' },
-          h('span', { className: 'maw-lane__dot', style: { background: colorOf(status) } }),
+      const renderColumn = ([status, columnTasks]) => h('div', { className: 'maw-column', key: status, 'data-status-group': status },
+        h('div', { className: 'maw-column__head' },
+          h('span', { className: 'maw-column__dot', style: { background: colorOf(status) } }),
           h('span', {}, statusLabel[status] ?? status),
-          h('span', { className: 'maw-lane__count' }, laneTasks.length)),
-        h('div', { className: 'maw-cards' }, laneTasks.map(renderCard)))
+          h('span', { className: 'maw-column__count' }, columnTasks.length)),
+        h('div', { className: 'maw-cards' }, columnTasks.map(renderCard)))
 
-      const main = tasks.length === 0
-        ? h('div', { className: 'maw-empty' }, dict.empty)
-        : lanes.map(renderLane)
-
+      // 内容区只负责「当前迭代」的卡片：筛选栏在内容头部，详情在右侧抽屉，
+      // 这里不再自带侧栏，也不再单独展示别的迭代的题。
       return h(React.Fragment, null,
         h('div', { className: 'maw-filters' },
           // 不再提供「切换工程」入口：看板只展示当前工作区对应的那个工程，
           // 换工程靠切换工作区的会话，而不是在这里挑。
-          field(dict.filterLane, 'lane', laneOptions),
+          field(dict.filterLane, 'lane', tagOptions, dict.laneHint),
           field(dict.filterStatus, 'status',
-            ['backlog', 'ready', 'in_progress', 'merging', 'blocked', 'done', 'cancelled']),
+            STATUS_ORDER.map(status => ({ value: status, label: statusLabel[status] ?? status })),
+            dict.statusHint),
           field(dict.filterAgent, 'agent', agentOptions),
           h('label', { className: 'maw-check' },
             h('input', {
@@ -823,34 +1195,168 @@ window.__ModuleLoader__.load({
               checked: filters.includeDone === true,
               onChange: event => setFilters({ ...filters, includeDone: event.target.checked }),
             }), dict.showDone)),
-        h('div', { className: 'maw-body' },
-          h('div', { className: 'maw-main' }, main),
-          h('div', { className: 'maw-side' }, h(SidePanels, { data }))))
+        h('div', { className: 'maw-main' },
+          tasks.length === 0
+            ? h('div', { className: 'maw-empty' }, dict.empty)
+            : columns.map(renderColumn)))
     }
 
-    /** 右侧风险 / 问题 / 迭代。 */
-    function SidePanels({ data }) {
-      const section = (title, items, render) => items.length === 0 ? null
+    /**
+     * 第一块：迭代栏。
+     *
+     * 只列当前工程自己的迭代 —— 别工程的迭代不能出现在这里，否则选中后
+     * 内容区会是空的，看起来像坏掉了。
+     *
+     * @param {object} props
+     * @param {object[]} props.iterations 当前工程的迭代
+     * @param {Record<string, number>} props.counts 每个迭代的题数（含已完成）
+     * @param {string} props.value 选中的迭代 id（空串 = 全部迭代）
+     * @param {(id: string) => void} props.onChange
+     */
+    function IterationPane({ iterations, counts, value, onChange, total }) {
+      const list = Array.isArray(iterations) ? iterations : []
+
+      // 排序：还在推进的排前面（进行中 → 阻塞 → 规划中），已完成的沉到后面。
+      // 迭代状态是按任务推导出来的，所以这里看到的是「真实进度」，不是 maw 里
+      // 那个永远停在 running 的记录值。
+      const ordered = useMemo(() => {
+        const rank = { running: 0, active: 0, blocked: 1, planning: 2, paused: 3, done: 4, completed: 4, closed: 4, archived: 5, cancelled: 5, empty: 6 }
+        return [...list].sort((a, b) => {
+          const ra = rank[a.status] ?? 3
+          const rb = rank[b.status] ?? 3
+          if (ra !== rb) return ra - rb
+          const ua = a.updatedAt ?? ''
+          const ub = b.updatedAt ?? ''
+          if (ua !== ub) return ub.localeCompare(ua)
+          return a.id.localeCompare(b.id)
+        })
+      }, [list])
+
+      const noneCount = counts?.[''] ?? 0
+
+      /**
+       * 一行迭代。
+       *
+       * `choice` 是「选中语义」，`entryId` 是真实迭代 id（未归迭代为空串）。
+       * 两者分开：全部迭代也要能被选中，不能只靠空 id 表达。
+       */
+      const item = (choice, entryId, name, entry) => {
+        const open = entry.total - entry.done
+        const percent = entry.total === 0 ? 0 : Math.round((entry.done / entry.total) * 100)
+        const titleParts = [name]
+        if (entry.goal !== '') titleParts.push(entry.goal)
+        if (entry.recordedStatus !== '' && entry.statusDerived) {
+          titleParts.push(`${dict.recordedStatus}：${entry.recordedStatus}（${dict.derivedStatusHint}）`)
+        }
+        return h('button', {
+          key: choice,
+          type: 'button',
+          className: `maw-iteration${value === choice ? ' is-active' : ''}`,
+          'aria-pressed': value === choice,
+          title: titleParts.join('\n'),
+          onClick: () => onChange(choice),
+        },
+        h('div', { className: 'maw-iteration__top' },
+          h('span', { className: 'maw-iteration__name' }, name),
+          h('span', { className: 'maw-iteration__count' }, `${entry.done}/${entry.total}`),
+          entry.status === ''
+            ? null
+            : h('span', {
+              className: 'maw-iteration__status',
+              title: entry.statusDerived ? dict.statusChangedNote : entry.recordedStatus,
+            }, iterationLabel[entry.status] ?? entry.status)),
+        h('div', { className: 'maw-track maw-track--rail', title: `${dict.iterationProgressLabel} ${percent}%` },
+          h('div', { className: 'maw-track__fill', style: { width: `${percent}%` } })),
+        (entryId !== '' || open > 0) ? h('div', { className: 'maw-iteration__id' },
+          entryId === '' ? null : entryId,
+          open > 0 ? h('span', { className: 'maw-iteration__open' }, `${open} ${dict.iterationTasks}`) : null) : null)
+      }
+
+      // 「全部迭代」与「未归迭代」没有真实迭代记录，用最小结构喂给同一个渲染。
+      const allEntry = { done: list.reduce((sum, entry) => sum + (entry.done ?? 0), 0), total, goal: '', status: '', recordedStatus: '', statusDerived: false }
+      const noneEntry = { done: 0, total: noneCount, goal: '', status: '', recordedStatus: '', statusDerived: false }
+
+      return h('div', { className: 'maw-iterations' },
+        h('div', { className: 'maw-iterations__head' },
+          h('span', { title: dict.iterationHintTitle }, dict.iteration),
+          h('span', { className: 'maw-bar__spacer' }),
+          h('span', { className: 'maw-iteration__count' }, total)),
+        h('div', { className: 'maw-iterations__list' },
+          // 全部迭代不展示 id 副行：它没有对应的真实迭代 id。
+          h('button', {
+            key: 'all',
+            type: 'button',
+            className: `maw-iteration${value === ALL_CHOICE ? ' is-active' : ''}`,
+            'aria-pressed': value === ALL_CHOICE,
+            title: dict.iterationHint,
+            onClick: () => onChange(ALL_CHOICE),
+          },
+          h('div', { className: 'maw-iteration__top' },
+            h('span', { className: 'maw-iteration__name' }, dict.iterationAll),
+            h('span', { className: 'maw-iteration__count' }, `${allEntry.done}/${total}`)),
+          h('div', { className: 'maw-track maw-track--rail' },
+            h('div', { className: 'maw-track__fill', style: { width: `${total === 0 ? 0 : Math.round((allEntry.done / total) * 100)}%` } }))),
+          ordered.map(entry => item(entry.id, entry.id, entry.name !== '' ? entry.name : entry.id, entry)),
+          // 未归迭代只有在确实有这类题时才出现：空分组没有意义。
+          noneCount > 0 ? item(NO_ITERATION_CHOICE, '', dict.iterationNone, noneEntry) : null,
+          ordered.length === 0 && noneCount === 0
+            ? h('div', { className: 'maw-empty' }, dict.iterationEmpty)
+            : null))
+    }
+
+    /**
+     * 问题面板：把「问题」与「风险」摊成一份清单。
+     *
+     * 这两类是排查入口而不是任务属性，所以放在工具条上按需展开，
+     * 不占三块布局的位置。带 taskId 的条目可以直接点开对应任务。
+     *
+     * @param {object} props
+     * @param {object|null} props.data 看板数据
+     * @param {() => void} props.onClose
+     * @param {(id: string) => void} [props.onSelect]
+     */
+    function ProblemPanel({ data, onClose, onSelect }) {
+      const problems = data?.problems ?? []
+      const risks = data?.risks ?? []
+      const total = problems.length + risks.length
+
+      const section = (title, items, prefix) => items.length === 0 ? null
         : h('div', { className: 'maw-section' },
           h('div', { className: 'maw-section__title' }, `${title}（${items.length}）`),
-          items.slice(0, 30).map(render))
+          items.slice(0, 50).map((entry, index) => h('button', {
+            key: `${prefix}-${index}`,
+            type: 'button',
+            className: 'maw-item maw-item--btn',
+            'data-sev': entry.severity,
+            title: entry.taskId === '' ? '' : `${dict.detailDrawer} · ${entry.taskId}`,
+            onClick: entry.taskId !== '' && onSelect !== undefined ? () => onSelect(entry.taskId) : undefined,
+          },
+          h('div', { className: 'maw-item__head' },
+            [entry.taskId || '—',
+              problemKindLabel[entry.kind] ?? entry.kind ?? '',
+              severityLabel[entry.severity] ?? entry.severity ?? ''].filter(Boolean).join(' · ')),
+          h('div', { className: 'maw-item__body' }, entry.message))))
 
       return h(React.Fragment, null,
-        section(dict.risks, data?.risks ?? [], (item, index) => h('div', {
-          className: 'maw-item', key: `r-${index}`, 'data-sev': item.severity,
+        h('div', { className: 'maw-panel__backdrop', onClick: onClose }),
+        h('aside', {
+          className: 'maw-panel',
+          role: 'dialog',
+          'aria-modal': 'false',
+          'aria-label': dict.problemsPanelTitle,
         },
-        h('div', { className: 'maw-item__head' }, `${item.taskId || '—'} · ${item.severity}`),
-        h('div', { className: 'maw-item__body' }, item.message))),
-        section(dict.problems, data?.problems ?? [], (item, index) => h('div', {
-          className: 'maw-item', key: `p-${index}`, 'data-sev': item.severity,
-        },
-        h('div', { className: 'maw-item__head' }, `${item.taskId || '—'} · ${item.kind || item.severity}`),
-        h('div', { className: 'maw-item__body' }, item.message))),
-        (data?.iterations ?? []).length === 0 ? null : h('div', { className: 'maw-section' },
-          h('div', { className: 'maw-section__title' }, `${dict.iterations}（${data.iterations.length}）`),
-          data.iterations.map(item => h('div', { className: 'maw-item', key: item.id },
-            h('div', { className: 'maw-item__head' }, `${item.id} · ${item.status}`),
-            h('div', { className: 'maw-item__body' }, item.name)))))
+        h('div', { className: 'maw-panel__head' },
+          h('span', { className: 'maw-panel__title' }, dict.problemsPanelTitle),
+          h('span', { className: 'maw-panel__count' }, `${total} ${dict.problemCount}`),
+          h('button', {
+            type: 'button', className: 'maw-panel__close', title: dict.close, onClick: onClose,
+          }, '×')),
+        h('div', { className: 'maw-panel__body' },
+          total === 0
+            ? h('div', { className: 'maw-empty' }, dict.noProblems)
+            : h(React.Fragment, null,
+              section(dict.problemsSection, problems, 'p'),
+              section(dict.risksSection, risks, 'r')))))
     }
 
     // ── 拓扑（对齐 maw board：200×98 卡片、平滑边、中点圆点、虚线跨视图） ──
@@ -982,14 +1488,12 @@ window.__ModuleLoader__.load({
     }
 
     /** 拓扑画布。 */
-    function TopologyPane({ data, selected, onSelect, session, project }) {
+    function TopologyPane({ data, selected, onSelect, canvasHeight }) {
       const canvasRef = useRef(null)
       const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 })
       const [showAll, setShowAll] = useState(false)
       const [hovered, setHovered] = useState(null)
       const dragRef = useRef(null)
-      const [detail, setDetail] = useState(null)
-      const [detailError, setDetailError] = useState(null)
 
       const tasks = data?.tasks ?? []
       const maxNodes = data?.config?.maxGraphNodes ?? 300
@@ -1058,168 +1562,159 @@ window.__ModuleLoader__.load({
         return () => canvas.removeEventListener('wheel', onWheel)
       }, [onWheel])
 
-      // 选中节点的详情。
-      useEffect(() => {
-        if (selected === null || selected === undefined) { setDetail(null); return undefined }
-        let alive = true
-        const controller = new AbortController()
-        // 带上会话与当前工程：看板按工程取数，详情也必须查同一个工程，
-        // 否则跨工程时会 404（任务明明就在看板上）。
-        const params = new URLSearchParams({ id: selected })
-        if (typeof session === 'string' && session !== '') params.set('session', session)
-        if (typeof project === 'string' && project !== '') params.set('project', project)
-        getJson(`/task?${params.toString()}`, controller.signal)
-          .then(body => { if (alive) { setDetail(body.task); setDetailError(null) } })
-          .catch(error => {
-            if (!alive || error?.name === 'AbortError') return
-            setDetailError(String(error?.message ?? error))
-          })
-        return () => { alive = false; controller.abort() }
-      }, [selected])
+      // 选中节点的详情由外层抽屉统一查询，这里只负责画布与选中。
 
       const nodes = [...layout.positions.entries()]
 
-      return h('div', { className: 'maw-body' },
-        h('div', { className: 'maw-main', style: { padding: 0, position: 'relative', overflow: 'hidden' } },
-          h('div', { className: 'maw-topo' },
-            h('div', {
-              className: 'maw-topo__canvas',
-              ref: canvasRef,
-              onPointerDown: event => {
-                if (event.button !== 0) return
-                // 不在这里捕获指针：setPointerCapture 会把后续 click 重定向到画布，
-                // 节点上的 onClick 就再也收不到。等到真的拖动超过阈值再捕获。
-                dragRef.current = {
-                  x: event.clientX,
-                  y: event.clientY,
-                  tx: transform.tx,
-                  ty: transform.ty,
-                  pointerId: event.pointerId,
-                  active: false,
-                }
-              },
-              onPointerMove: event => {
-                const drag = dragRef.current
-                if (drag === null) return
-                const dx = event.clientX - drag.x
-                const dy = event.clientY - drag.y
-                if (!drag.active && Math.hypot(dx, dy) < 4) return
-                if (!drag.active) {
-                  drag.active = true
-                  event.currentTarget.setPointerCapture?.(drag.pointerId)
-                }
-                setTransform(previous => ({
-                  ...previous,
-                  tx: drag.tx + dx,
-                  ty: drag.ty + dy,
-                }))
-              },
-              onPointerUp: event => {
-                const drag = dragRef.current
-                dragRef.current = null
-                if (drag?.active === true) {
-                  event.currentTarget.releasePointerCapture?.(drag.pointerId)
-                }
-              },
-              onPointerLeave: () => { dragRef.current = null; setHovered(null) },
+      // 有任务但一个节点都画不出来：只可能是这些题都已完成/取消，而画布默认
+      // 不展示它们。空画布会让人以为坏了，所以直接把原因和出口说清楚。
+      if (tasks.length > 0 && nodes.length === 0) {
+        return h('div', { className: 'maw-empty' },
+          h('div', {}, dict.depsEmpty),
+          h('label', { className: 'maw-check', style: { marginTop: 10, justifyContent: 'center' } },
+            h('input', {
+              type: 'checkbox',
+              checked: showAll,
+              onChange: event => setShowAll(event.target.checked),
+            }), dict.showAllNodes))
+      }
+
+      return h('div', { className: 'maw-topo' },
+        h('div', {
+          className: 'maw-topo__canvas',
+          ref: canvasRef,
+          onPointerDown: event => {
+            if (event.button !== 0) return
+            // 不在这里捕获指针：setPointerCapture 会把后续 click 重定向到画布，
+            // 节点上的 onClick 就再也收不到。等到真的拖动超过阈值再捕获。
+            dragRef.current = {
+              x: event.clientX,
+              y: event.clientY,
+              tx: transform.tx,
+              ty: transform.ty,
+              pointerId: event.pointerId,
+              active: false,
+            }
+          },
+          onPointerMove: event => {
+            const drag = dragRef.current
+            if (drag === null) return
+            const dx = event.clientX - drag.x
+            const dy = event.clientY - drag.y
+            if (!drag.active && Math.hypot(dx, dy) < 4) return
+            if (!drag.active) {
+              drag.active = true
+              event.currentTarget.setPointerCapture?.(drag.pointerId)
+            }
+            setTransform(previous => ({
+              ...previous,
+              tx: drag.tx + dx,
+              ty: drag.ty + dy,
+            }))
+          },
+          onPointerUp: event => {
+            const drag = dragRef.current
+            dragRef.current = null
+            if (drag?.active === true) {
+              event.currentTarget.releasePointerCapture?.(drag.pointerId)
+            }
+          },
+          onPointerLeave: () => { dragRef.current = null; setHovered(null) },
+        },
+        h('div', {
+          className: 'maw-topo__scene',
+          style: {
+            width: layout.width,
+            height: layout.height,
+            transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
+          },
+        },
+        // 边层
+        h('svg', {
+          className: 'maw-topo__edges',
+          width: layout.width,
+          height: layout.height,
+        },
+        h('defs', null,
+          h('marker', {
+            id: 'maw-arrow',
+            markerWidth: 8,
+            markerHeight: 6,
+            refX: 8,
+            refY: 3,
+            orient: 'auto',
+            markerUnits: 'userSpaceOnUse',
+          }, h('path', { d: 'M0,0 L8,3 L0,6 Z', fill: 'var(--dsw-alias-border-l2)' }))),
+        layout.edges.map((edge, index) => {
+          const from = layout.positions.get(edge.from)
+          const to = layout.positions.get(edge.to)
+          if (from === undefined || to === undefined) return null
+          const isHot = highlight !== null && highlight.edges.has(index)
+          const isDim = highlight !== null && !isHot
+          return h(Edge, { key: `e-${index}`, from, to, cross: edge.cross, dim: isDim, hot: isHot })
+        })),
+        // 节点层
+        nodes.map(([id, pos]) => {
+          if (pos.stub) {
+            return h('div', {
+              key: `s-${id}`,
+              className: 'maw-topo__node stub',
+              style: { left: pos.x, top: pos.y, width: NODE_W, height: NODE_H },
+              title: dict.stubHint,
             },
-            h('div', {
-              className: 'maw-topo__scene',
-              style: {
-                width: layout.width,
-                height: layout.height,
-                transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
-              },
-            },
-            // 边层
-            h('svg', {
-              className: 'maw-topo__edges',
-              width: layout.width,
-              height: layout.height,
-            },
-            h('defs', null,
-              h('marker', {
-                id: 'maw-arrow',
-                markerWidth: 8,
-                markerHeight: 6,
-                refX: 8,
-                refY: 3,
-                orient: 'auto',
-                markerUnits: 'userSpaceOnUse',
-              }, h('path', { d: 'M0,0 L8,3 L0,6 Z', fill: 'var(--dsw-alias-border-l2)' }))),
-            layout.edges.map((edge, index) => {
-              const from = layout.positions.get(edge.from)
-              const to = layout.positions.get(edge.to)
-              if (from === undefined || to === undefined) return null
-              const isHot = highlight !== null && highlight.edges.has(index)
-              const isDim = highlight !== null && !isHot
-              return h(Edge, { key: `e-${index}`, from, to, cross: edge.cross, dim: isDim, hot: isHot })
-            })),
-            // 节点层
-            nodes.map(([id, pos]) => {
-              if (pos.stub) {
-                return h('div', {
-                  key: `s-${id}`,
-                  className: 'maw-topo__node stub',
-                  style: { left: pos.x, top: pos.y, width: NODE_W, height: NODE_H },
-                  title: dict.stubHint,
-                },
-                h('div', { className: 'maw-topo__head' }, h('span', { className: 'maw-topo__id' }, id)),
-                h('h4', { className: 'maw-topo__title' }, dict.stubTitle),
-                h('div', { className: 'maw-topo__meta' }, h('span', {}, dict.stubHint)))
+            h('div', { className: 'maw-topo__head' }, h('span', { className: 'maw-topo__id' }, id)),
+            h('h4', { className: 'maw-topo__title' }, dict.stubTitle),
+            h('div', { className: 'maw-topo__meta' }, h('span', {}, dict.stubHint)))
+          }
+          const task = pos.task
+          const isHot = highlight !== null && highlight.nodes.has(id)
+          const isDim = highlight !== null && !isHot
+          return h('div', {
+            key: id,
+            className: `maw-topo__node clickable${selected === id ? ' active' : ''}${isDim ? ' dim' : ''}${isHot ? ' hot' : ''}`,
+            'data-status': task.status,
+            role: 'button',
+            tabIndex: 0,
+            'aria-pressed': selected === id,
+            'aria-label': `${task.id} ${task.title}，${statusLabel[task.status] ?? task.status}`,
+            style: { left: pos.x, top: pos.y, width: NODE_W, height: NODE_H },
+            onMouseEnter: () => setHovered(id),
+            onMouseLeave: () => setHovered(null),
+            onClick: () => onSelect(id),
+            onKeyDown: event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onSelect(id)
               }
-              const task = pos.task
-              const isHot = highlight !== null && highlight.nodes.has(id)
-              const isDim = highlight !== null && !isHot
-              return h('div', {
-                key: id,
-                className: `maw-topo__node clickable${selected === id ? ' active' : ''}${isDim ? ' dim' : ''}${isHot ? ' hot' : ''}`,
-                'data-status': task.status,
-                role: 'button',
-                tabIndex: 0,
-                'aria-label': `${task.id} ${task.title}，${task.status}`,
-                style: { left: pos.x, top: pos.y, width: NODE_W, height: NODE_H },
-                onMouseEnter: () => setHovered(id),
-                onMouseLeave: () => setHovered(null),
-                onClick: () => onSelect(id),
-                onKeyDown: event => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelect(id)
-                  }
-                },
-              },
-              h('div', { className: 'maw-topo__head' },
-                h('span', { className: 'maw-topo__id' }, task.id),
-                h('span', { className: 'maw-topo__status' }, task.status)),
-              h('h4', { className: 'maw-topo__title' }, task.title),
-              h('div', { className: 'maw-topo__meta' },
-                h('span', { className: 'maw-topo__owner' }, task.owner || dict.unassigned),
-                h('span', {}, task.priority === null ? dict.pNone : `P${task.priority}`)))
-            }))),
-            // 图例
-            h('div', { className: 'maw-topo__legend' },
-              h('span', null, h('i'), dict.legend),
-              h('span', null, h('i', { className: 'cross' }), dict.legendCross)),
-            // 工具条
-            h('div', { className: 'maw-topo__bar' },
-              h('button', { type: 'button', className: 'maw-btn', onClick: fit }, dict.fit),
-              h('button', {
-                type: 'button',
-                className: 'maw-btn',
-                onClick: () => setTransform({ scale: 1, tx: 0, ty: 0 }),
-              }, dict.relayout)),
-            h('label', { className: 'maw-check maw-check--floating' },
-              h('input', {
-                type: 'checkbox',
-                checked: showAll,
-                onChange: event => setShowAll(event.target.checked),
-              }), dict.showAllNodes))),
-        (selected === null || selected === undefined) ? null : h('div', { className: 'maw-side' },
-          detailError !== null
-            ? h('div', { className: 'maw-error' },
-              h('div', { className: 'maw-error__head' }, dict.failed), detailError)
-            : h(TaskDetail, { task: detail })))
+            },
+          },
+          h('div', { className: 'maw-topo__head' },
+            h('span', { className: 'maw-topo__id' }, task.id),
+            h('span', { className: 'maw-topo__status', title: task.status },
+              statusLabel[task.status] ?? task.status)),
+          h('h4', { className: 'maw-topo__title' }, task.title),
+          h('div', { className: 'maw-topo__meta' },
+            h('span', { className: 'maw-topo__owner' }, task.owner || dict.unassigned),
+            h('span', {}, task.priority === null ? dict.pNone : `P${task.priority}`)))
+        })),
+        // 图例
+        h('div', { className: 'maw-topo__legend' },
+          h('span', null, h('i'), dict.legend),
+          h('span', null, h('i', { className: 'cross' }), dict.legendCross)),
+        // 工具条
+        h('div', { className: 'maw-topo__bar' },
+          h('button', { type: 'button', className: 'maw-btn', onClick: fit }, dict.fit),
+          h('button', {
+            type: 'button',
+            className: 'maw-btn',
+            onClick: () => setTransform({ scale: 1, tx: 0, ty: 0 }),
+          }, dict.relayout),
+          h('label', { className: 'maw-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: showAll,
+              onChange: event => setShowAll(event.target.checked),
+            }), dict.showAllNodes))))
     }
 
     /** 读出当前会话的视图标签（顺序即位置）。 */
@@ -1258,14 +1753,19 @@ window.__ModuleLoader__.load({
     function MawView(props) {
       useStyle()
       const sessionId = typeof props?.sessionId === 'string' ? props.sessionId : ''
-      const [tab, setTab] = useState('board')
+      // 内容视图：看板 / 依赖，切换放在内容区自己的头部，不再占用顶栏。
+      const [view, setView] = useState('board')
       // 不再有 project 维度：看的是哪个工程由会话自己的工作区决定，
       // 请求里也不带 project 参数，避免界面能把工程切走。
       const [filters, setFilters] = useState({ lane: '', status: '', agent: '', includeDone: false })
+      // 当前迭代：ALL_CHOICE = 全部，NO_ITERATION_CHOICE = 未归迭代，其余是迭代 id。
+      const [iteration, setIteration] = useState(ALL_CHOICE)
       const [selected, setSelected] = useState(null)
       // 预览动作：正在跑的那个、以及最近一次结果。
       const [busyAction, setBusyAction] = useState('')
       const [previewResult, setPreviewResult] = useState(null)
+      // 问题面板：从工具条展开的问题 / 风险清单。
+      const [panelOpen, setPanelOpen] = useState(false)
 
       const query = useMemo(() => {
         const params = new URLSearchParams()
@@ -1274,9 +1774,11 @@ window.__ModuleLoader__.load({
         if (filters.status !== '') params.set('status', filters.status)
         if (filters.agent !== '') params.set('agent', filters.agent)
         if (filters.includeDone) params.set('includeDone', 'true')
+        // 迭代筛选交给 Host：内容区看到的题必须与迭代栏上选中的那个一致。
+        params.set('iteration', iteration)
         const text = params.toString()
         return text === '' ? '/board' : `/board?${text}`
-      }, [filters, sessionId])
+      }, [filters, iteration, sessionId])
 
       const { data, error, loading, refresh } = usePoll(query, 5000, true)
       // maw 缺失或安装失败时轮询健康状态，装好后自动恢复。
@@ -1285,7 +1787,53 @@ window.__ModuleLoader__.load({
       const stale = Object.entries(data?.sources ?? {})
         .filter(([, state]) => state !== 'ok').map(([source]) => source)
 
-      const body = () => {
+      // 当前工程 id：详情查询与预览动作都要带上它，否则跨工程会 404。
+      const projectId = String(data?.launch?.projectId ?? data?.defaultProjectId ?? '')
+
+      // 选中的迭代一旦在数据里消失（切了工程），退回「全部」，避免内容区空着。
+      useEffect(() => {
+        if (data === null) return
+        if (iteration === ALL_CHOICE || iteration === NO_ITERATION_CHOICE) return
+        const exists = (data.iterations ?? []).some(entry => entry.id === iteration)
+        if (!exists) setIteration(ALL_CHOICE)
+      }, [data, iteration])
+
+      // Esc 关掉问题面板：面板是浮层，键盘退出是基本预期。
+      useEffect(() => {
+        if (!panelOpen) return undefined
+        const onKey = event => { if (event.key === 'Escape') setPanelOpen(false) }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+      }, [panelOpen])
+
+      // 详情抽屉：按任务 id 取一次完整详情（含上下游）。
+      const [detail, setDetail] = useState({ task: null, error: null, loading: false })
+      useEffect(() => {
+        if (selected === null || selected === undefined) {
+          setDetail({ task: null, error: null, loading: false })
+          return undefined
+        }
+        let alive = true
+        const controller = new AbortController()
+        setDetail(previous => ({ ...previous, loading: true, error: null }))
+        const params = new URLSearchParams({ id: selected })
+        if (sessionId !== '') params.set('session', sessionId)
+        if (projectId !== '') params.set('project', projectId)
+        getJson(`/task?${params.toString()}`, controller.signal)
+          .then(body => {
+            if (alive) setDetail({ task: body?.task ?? null, error: null, loading: false })
+          })
+          .catch(caught => {
+            if (!alive || caught?.name === 'AbortError') return
+            setDetail({ task: null, error: String(caught?.message ?? caught), loading: false })
+          })
+        return () => { alive = false; controller.abort() }
+      }, [selected, sessionId, projectId])
+
+      const iterations = data?.iterations ?? []
+      const iterationCounts = data?.iterationCounts ?? {}
+
+      const content = () => {
         if (error !== null && data === null) {
           return h('div', { className: 'maw-main' },
             h('div', { className: 'maw-error' },
@@ -1297,43 +1845,81 @@ window.__ModuleLoader__.load({
               }, dict.retry)))
         }
         if (data === null) return h('div', { className: 'maw-empty' }, dict.loading)
-        // 当前工作区不对应任何 maw 工程：整块留白，不展示别人的看板。
-        // 顺带把「怎么才能看到」说清楚，否则空白让人以为坏了。
+        // 当前工作区不对应任何 maw 工程：只给一句「暂无任务」。
+        // 不展示别人的看板，也不再解释怎么登记 —— 这类说明属于插件文档，不是界面文案。
         if (data.matched === false) {
-          return h('div', { className: 'maw-empty' },
-            h('div', {}, dict.notMawProject),
-            h('div', { className: 'maw-empty__hint' }, dict.notMawProjectHint))
+          return h('div', { className: 'maw-empty' }, dict.noTasks)
         }
-        return tab === 'board'
-          ? h(BoardPane, { data, filters, setFilters, selected, onSelect: setSelected })
-          // 详情查询要带上当前工程，否则跨工程时会 404（题就在看板上却查不到）。
-          : h(TopologyPane, {
-            data, selected, onSelect: setSelected, session: sessionId,
-            project: String(data?.launch?.projectId ?? data?.defaultProjectId ?? ''),
-          })
+        if (view === 'graph') {
+          return h(TopologyPane, { data, selected, onSelect: setSelected })
+        }
+        return h(BoardPane, {
+          data, filters, setFilters, selected, onSelect: setSelected,
+          // 看「全部迭代」时，卡片要标出自己属于哪个迭代，否则多迭代会混成一片。
+          showIteration: iteration === ALL_CHOICE,
+        })
       }
 
-      // 工具条上的动作只对「已登记到 maw 的工程」出现：
-      // 未登记的目录没有队列、没有 agent、没有 worktree，按钮露出来只会误导。
+      // 工具条上的动作只对「已登记到 maw 的工程」出现：未登记的目录没有队列、
+      // 没有 agent、没有 worktree，按钮露出来只会误导。
       const registered = data?.launch?.registered === true
-      const actionProjectId = String(data?.launch?.projectId ?? data?.defaultProjectId ?? '')
+      const problemTotal = (data?.problems?.length ?? 0) + (data?.risks?.length ?? 0)
+      const showShell = data !== null && data.matched !== false
+      const currentIteration = iterations.find(entry => entry.id === iteration)
+      const contentTitle = iteration === ALL_CHOICE
+        ? dict.iterationAll
+        : iteration === NO_ITERATION_CHOICE
+          ? dict.iterationNone
+          : (currentIteration?.name ?? iteration)
+
+      const drawer = h('aside', { className: 'maw-drawer', 'aria-label': dict.detailDrawer },
+        h('div', { className: 'maw-drawer__head' },
+          h('span', { className: 'maw-drawer__title' },
+            selected === null ? dict.detailDrawer : `${dict.detailDrawer} · ${selected}`),
+          selected === null ? null : h('button', {
+            type: 'button', className: 'maw-drawer__close', title: dict.close,
+            onClick: () => setSelected(null),
+          }, '×')),
+        h('div', { className: 'maw-drawer__body' },
+          selected === null
+            ? h('div', { className: 'maw-empty' },
+              h('div', {}, dict.drawerHint),
+              h('button', {
+                type: 'button', className: 'maw-btn', style: { marginTop: 10 },
+                onClick: () => setPanelOpen(true),
+              }, `${dict.problemsPanel} ${(data?.problems?.length ?? 0) + (data?.risks?.length ?? 0)}`))
+            : detail.error !== null
+              ? h('div', { className: 'maw-error' },
+                h('div', { className: 'maw-error__head' }, dict.failed), detail.error)
+              : detail.task === null && detail.loading
+                ? h('div', { className: 'maw-empty' }, dict.loading)
+                : h(TaskDetail, {
+                  task: detail.task,
+                  onSelect: setSelected,
+                  // 详情是异步取的：首帧 task 还是 null，这里必须容错，
+                  // 否则「点开任务」这一步会直接抛空指针。
+                  iterationName: iterations.find(entry => entry.id === detail.task?.iterationId)?.name ?? '',
+                })))
 
       return h('div', { className: 'maw-view' },
         h('div', { className: 'maw-bar' },
           h('span', { className: 'maw-bar__title' }, dict.title),
-          h('div', { className: 'maw-tabs', role: 'tablist' },
-            h('button', {
-              type: 'button', className: 'maw-tab', role: 'tab',
-              'aria-selected': tab === 'board', onClick: () => setTab('board'),
-            }, dict.board),
-            h('button', {
-              type: 'button', className: 'maw-tab', role: 'tab',
-              'aria-selected': tab === 'graph', onClick: () => setTab('graph'),
-            }, dict.graph)),
           h('span', { className: 'maw-bar__spacer' }),
+          // 问题面板入口：紧挨着自检，属于同一组「排查」动作。
+          // 非 maw 工程时整条隐藏：那时没有问题数据可看，露个按钮只会误导。
+          showShell && h('button', {
+            type: 'button',
+            className: 'maw-btn maw-problem-btn',
+            'data-active': panelOpen,
+            title: dict.problemsPanelTitle,
+            'aria-expanded': panelOpen,
+            onClick: () => setPanelOpen(open => !open),
+          },
+          dict.problemsPanel,
+          problemTotal > 0 ? h('span', { className: 'maw-problem-btn__badge' }, problemTotal) : null),
           registered && h(PreviewActions, {
             actions: data.actions,
-            projectId: actionProjectId,
+            projectId,
             labelOf: action => dict[action.labelKey] ?? action.id,
             onResult: setPreviewResult,
             busyId: busyAction,
@@ -1360,7 +1946,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'maw-preview__head' },
             h('span', { className: 'maw-preview__title' }, previewResult.label),
             h('button', {
-              type: 'button', className: 'maw-preview__close', title: dict.close ?? '关闭',
+              type: 'button', className: 'maw-preview__close', title: dict.close,
               onClick: () => setPreviewResult(null),
             }, '×')),
           previewResult.ok
@@ -1370,7 +1956,46 @@ window.__ModuleLoader__.load({
                 previewResult.lines.map((line, index) => h('li', { key: `${index}-${line}` }, line))))
             : h('div', { className: 'maw-preview__err' },
               `${dict.actionFailed}：${previewResult.error}`)),
-        loading && data === null ? h('div', { className: 'maw-empty' }, dict.loading) : body())
+        // ── 三块：迭代 | 内容 | 详情抽屉 ──
+        showShell
+          ? h('div', { className: 'maw-shell' },
+            h(IterationPane, {
+              iterations,
+              counts: iterationCounts,
+              value: iteration,
+              total: data.total,
+              onChange: choice => {
+                // 换迭代时清掉选中：上一个迭代的题可能已经不在视野里。
+                setSelected(null)
+                setIteration(choice)
+              },
+            }),
+            h('section', { className: 'maw-content' },
+              h('div', { className: 'maw-content__head' },
+                h('div', { className: 'maw-switch', role: 'tablist', 'aria-label': dict.title },
+                  h('button', {
+                    type: 'button', className: 'maw-switch__btn', role: 'tab',
+                    'aria-selected': view === 'board', onClick: () => setView('board'),
+                  }, dict.board),
+                  h('button', {
+                    type: 'button', className: 'maw-switch__btn', role: 'tab',
+                    'aria-selected': view === 'graph', onClick: () => setView('graph'),
+                  }, dict.graph)),
+                h('span', { className: 'maw-content__title', title: contentTitle }, contentTitle),
+                h('span', { className: 'maw-content__spacer' }),
+                h('span', { className: 'maw-muted' },
+                  `${data.tasks.length} ${dict.tasks}`)),
+              h('div', { className: 'maw-content__body' }, content()),
+              // 问题面板挂在内容区里：浮在中间那块之上，右侧详情抽屉仍然可见。
+              panelOpen && h(ProblemPanel, {
+                data,
+                onClose: () => setPanelOpen(false),
+                onSelect: id => { setSelected(id); setPanelOpen(false) },
+              })),
+            drawer)
+          : loading && data === null
+            ? h('div', { className: 'maw-empty' }, dict.loading)
+            : h('div', { className: 'maw-main' }, content()))
     }
 
     // ── 工具结果卡片 ─────────────────────────────────────
@@ -1414,6 +2039,9 @@ window.__ModuleLoader__.load({
             const active = ctx.locale.getSnapshot().active
             dict = TEXT[active] ?? TEXT.zh
             statusLabel = STATUS_LABEL[active] ?? STATUS_LABEL.zh
+            iterationLabel = ITERATION_LABEL[active] ?? ITERATION_LABEL.zh
+            problemKindLabel = PROBLEM_KIND[active] ?? PROBLEM_KIND.zh
+            severityLabel = SEVERITY_LABEL[active] ?? SEVERITY_LABEL.zh
           }
           sync()
           ctx.effect(() => ctx.locale.subscribe(sync), 'dsh-maw: locale sync')
@@ -1465,7 +2093,7 @@ window.__ModuleLoader__.load({
                   const title = viewTabLabel(index)
                   return title === '' ? `View ${index}` : `${dict.switchTo} ${title}`
                 },
-                aliases: [`view ${index}`, `标签 ${index}`, 'maw board', 'kanban', '看板'],
+                aliases: [`view ${index}`, `标签 ${index}`, 'maw board', 'kanban', '看板', 'maw看板'],
                 defaults: {
                   'desktop:macos': { code: `Digit${index}`, modifiers },
                   'desktop:windows': { code: `Digit${index}`, modifiers },
